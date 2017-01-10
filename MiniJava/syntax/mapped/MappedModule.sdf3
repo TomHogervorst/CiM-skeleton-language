@@ -1,0 +1,23 @@
+module mapped/MappedModule
+
+imports
+  Common
+  IntPair
+  mapped/MappedBlock
+  
+sorts
+  MappedModule
+  MappedInputPort 
+  
+context-free start-symbols
+  MappedModule
+  
+template options 
+  tokenize: "()"
+  tokenize: "[]"
+
+context-free syntax
+  MappedInputPort.MappedInputPort = <in<INT>, <INT>, <MappedBlock>>
+  MappedInputPort.MappedModulePort = <m<INT>, <INT>, <MappedBlock>>
+  //funcnum, pos block, width, height, timestep, delay, energy, outport block, inputpports
+  MappedModule.MappedModule = <<INT>, <MappedBlock>, <INT>, <INT>, <INT>, <INT>, <INT>, <MappedBlock>, <{MappedInputPort ", "}*>>

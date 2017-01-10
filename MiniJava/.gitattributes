@@ -1,0 +1,24 @@
+*            text=auto
+*.cache      text eol=lf
+*.ctree      text eol=lf
+*.def        text eol=lf
+*.ds         text eol=lf
+*.esv        text eol=lf
+*.idx        binary
+*.java       text eol=lf
+*.launch     text eol=lf
+*.mjv        text eol=lf
+*.nab        text eol=lf
+*.pp         text eol=lf
+*.pp.af      text eol=lf
+*.prefs      text eol=lf
+*.properties text eol=lf
+*.rtg        text eol=lf
+*.rtree      text eol=lf
+*.sdf        text eol=lf
+*.sdf3       text eol=lf
+*.spt        text eol=lf
+*.str        text eol=lf
+*.tbl        binary
+*.ts         text eol=lf
+MANIFEST.MF  text eol=lf

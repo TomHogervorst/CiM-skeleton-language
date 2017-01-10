@@ -1,0 +1,105 @@
+module Common
+
+context-free start-symbols
+  INT
+  ID
+
+sorts
+  INT
+
+lexical start-symbols
+  ID 
+  INT
+
+lexical syntax
+
+  ID             = [a-zA-Z] [\_a-zA-Z0-9]* 
+  INT            = [0-9]+ 
+  CO			 = "*_"[a-zA-Z]"_*"
+  STRING         = "\"" StringChar* "\"" 
+  StringChar     = ~[\"\n] 
+  StringChar     = "\\\"" 
+  StringChar     = BackSlashChar 
+  BackSlashChar  = "\\" 
+  LAYOUT         = [\ \t\n\r] 
+  CommentChar    = [\*] 
+  LAYOUT         = "/*" InsideComment* "*/" 
+  InsideComment  = ~[\*] 
+  InsideComment  = CommentChar 
+  LAYOUT         = "//" ~[\n\r]* NewLineEOF 
+  NewLineEOF     = [\n\r] 
+  NewLineEOF     = EOF 
+  EOF            =  
+  	
+  ID = "bool" {reject}
+  ID = "else" {reject}
+  ID = "false" {reject}
+  ID = "if" {reject}
+  ID = "int" {reject}
+  ID = "true" {reject}
+  
+  //skelecim keyword
+  ID = "zip" {reject}
+  ID = "loop" {reject}
+  ID = "log2" {reject}
+  ID = "NOP" {reject}
+  ID = "main" {reject}
+  ID = "incr" {reject}
+  ID = "shiftr" {reject}
+  ID = "shiftl" {reject}
+  ID = "end" {reject}
+  ID = "then" {reject}
+  ID = "comp" {reject}
+  ID = "logsof2" {reject}
+  ID = "map" {reject}
+  ID = "foldr" {reject}
+  ID = "foldl" {reject}
+  ID = "max" {reject}
+  ID = "inport" {reject}
+  ID = "outport" {reject}
+  ID = "pos" {reject}
+  ID = "rot" {reject}
+  ID = "mir" {reject}
+  ID = "size" {reject}
+  ID = "time" {reject}
+  ID = "delay" {reject}
+  ID = "crd" {reject}
+  ID = "translate" {reject}
+  ID = "rotate" {reject}
+  ID = "mirrorX" {reject}
+  ID = "mirrorY" {reject}
+  ID = "X" {reject}
+  ID = "Y" {reject}
+  ID = "repeat" {reject}
+  
+  //deprecated keywords
+  ID = "deprecated_in" {reject}
+  ID = "deprecated_out" {reject}
+  
+  CO = "*_H_*" {reject}
+  CO = "*_I_*" {reject}
+  CO = "*_C_*" {reject}
+  
+lexical restrictions
+
+  // Ensure greedy matching for lexicals
+  
+  CommentChar   -/- [\/]
+  INT           -/- [0-9]
+  ID            -/- [a-zA-Z0-9\_]
+  
+  // EOF may not be followed by any char
+  
+  EOF           -/- ~[]
+  
+  // Backslash chars in strings may not be followed by " 
+  
+  BackSlashChar -/- [\"]
+
+context-free restrictions
+
+  // Ensure greedy matching for comments
+  
+  LAYOUT? -/- [\ \t\n\r]
+  LAYOUT? -/- [\/].[\/]
+  LAYOUT? -/- [\/].[\*]

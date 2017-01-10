@@ -1,0 +1,59 @@
+module desugar
+
+imports src-gen/signatures/Expression-sig
+	src-gen/signatures/Signal-sig
+	src-gen/signatures/Statement-sig
+	src-gen/signatures/Type-sig
+	src-gen/signatures/Skeleton-sig
+	src-gen/signatures/Entity-sig
+	src-gen/signatures/Expression-sig
+
+strategies
+	
+	desugar-all = bottomup(try(desugar))
+	
+rules
+	
+	desugar: Add(exp1, exp2) -> BinOp(exp1, Plus(), exp2)
+	desugar: Sub(exp1, exp2) -> BinOp(exp1, Minus(), exp2)
+	desugar: Mul(exp1, exp2) -> BinOp(exp1, Times(), exp2)
+	desugar: Div(exp1, exp2) -> BinOp(exp1, DividedBy(), exp2)
+	desugar: Mod(exp1, exp2) -> BinOp(exp1, Modulo(), exp2)
+	desugar: Power(exp1, exp2) -> BinOp(exp1, ToThePower(), exp2)
+	desugar: AND(exp1, exp2) -> BinOp(exp1, And(), exp2)
+	desugar: OR(exp1, exp2) -> BinOp(exp1, Or(), exp2)
+	desugar: LT(exp1, exp2) -> BinOp(exp1, LessThan(), exp2)
+	desugar: GT(exp1, exp2) -> BinOp(exp1, GreaterThan(), exp2)
+	desugar: EQ(exp1, exp2) -> BinOp(exp1, EqualTo(), exp2)
+	desugar: LEQ(exp1, exp2) -> BinOp(exp1, LessOrEqual(), exp2)
+	desugar: GEQ(exp1, exp2) -> BinOp(exp1, GreaterOrEqual(), exp2)
+	desugar: Max(exp1, exp2) -> BinOp(exp1, MaxOf(), exp2)
+	
+	desugar: True() -> Int("1")
+	desugar: False() -> Int("0")
+	
+	desugar: FoldRight2(op, exp1, exp2) -> FoldRight(op, Append(exp1, exp2))
+	desugar: FoldLeft2(op, exp1, exp2) -> FoldLeft(op, Append(exp1, exp2))
+	
+	desugar: Range(exp1, exp2) -> Interval(exp1, Int("1"), exp2)
+	
+	desugar: VarDecl(Array(type), name) -> VarDeclInit(Array(type), name, ManualDefinition([]))
+	desugar: VarDecl(Integer(), name) -> VarDeclInit(Integer(), name, Int("0"))
+	desugar: VarDecl(Boolean(), name) -> VarDeclInit(Boolean(), name, False())
+	desugar: VarDecl(Skeleton(), name) -> VarDeclInit(Skeleton(), name, Nop())
+	desugar: VarDecl(Coordinate(), name) -> VarDeclInit(Coordinate(), name, CoordVal("0", "0"))
+	
+	desugar: SingleSigRef(name) -> SigRef(name, Int("0"))
+	
+	desugar: AltConSkel(skel) -> ConSkel(Linear(), skel)
+	
+	desugar: SingleSignalAssign(name, signal, conskel) -> SignalAssign(name, Int("0"), signal, conskel)
+	desugar: AltSignalAssign(signal, conskel, name, array) -> SignalAssign(name, array, signal, conskel)
+	desugar: AltSingleSignalAssign(signal, conskel, name) -> SignalAssign(name, Int("0"), signal, conskel)
+	
+	desugar: SingleModRef(name) -> ModRef(name, Int("0"))
+	desugar: SingleCompAttrAssign(name, attr, exp) -> CompAttrAssign(name, Int("0"), attr, exp)
+	
+	desugar: SingleSigArg(name) -> SigArg(name, Int("1"))
+	desugar: SingleModArg(inports, outports, name) -> ModArg(inports, outports, name, Int("1"))
+	desugar: SingleSignalDecl(name) -> SignalDecl(name, Int("1"))

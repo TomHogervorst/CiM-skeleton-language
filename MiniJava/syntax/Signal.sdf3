@@ -1,0 +1,25 @@
+module Signal
+
+imports
+  Common
+  Expression
+  
+sorts
+  Signal
+  
+context-free start-symbols
+  Signal
+  
+template options
+  tokenize: "("
+  keyword -/- [a-zA-Z]
+
+context-free syntax
+  Signal.SigRef = <<ID>[<Exp>]>
+  Signal.SingleSigRef = <<ID>>
+  Signal.Zip = <zip(<Signal>, <Signal>)> {left}
+  Signal.ConcurSig = <<Signal> ++ <Signal>> {left}
+  Signal.InputSig = <deprecated_in[<Exp>]>
+  Signal.ConcurSigLoop = <loop\<++\>(<ID> = <Exp>; <Signal>)>
+  
+   

@@ -1,0 +1,5 @@
+module MiniJava-Folding
+
+imports MiniJava-Folding.generated
+
+folding

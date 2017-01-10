@@ -1,0 +1,121 @@
+module signal-trans
+
+imports
+
+  libstratego-gpp
+  lib/runtime/tmpl/pp
+  src-gen/signatures/Signal-sig
+  src-gen/signatures/Statement-sig
+  src-gen/signatures/Type-sig
+  include/MiniJava-parenthesize
+  exp-trans
+  deref
+  helper
+  
+rules
+	
+	signal-decl-get-size:
+		SignalDecl(name, size) -> <exp-to-int(|"error", [], [])> size
+		
+	signal-get-index:
+		name -> 1
+		
+	signal-get-length:
+		SigRef(name, array*) -> <length> array*
+		
+	signal-get-length:
+		Zip(signal1, signal2) -> res
+		with
+			res1 := <signal-get-length> signal1;
+			res2 := <signal-get-length> signal2;
+			res := <add>(res1, res2)
+			
+	signal-get-length:
+		ConcurSig(signal1, signal2) -> res
+		with
+			res1 := <signal-get-length> signal1;
+			res2 := <signal-get-length> signal2;
+			res := <add>(res1, res2)
+			
+	signal-separate-first-element:
+		InputSig(array) -> (InputSig([<index(|1)> array]), InputSig(<drop(|1)> array))
+		
+	signal-separate-first-element:
+		SigRef(num, array) -> (SigRef(num, [<index(|1)> array]), SigRef(num, <drop(|1)> array))
+			
+	signal-separate-first-element:
+		ConcurSig(signal1, signal2) -> (firstElement, restSignal)
+		with
+			(firstElement, firstRes) := <signal-separate-first-element> signal1;
+			if <eq>(<signal-get-length> firstRes, 0) then
+				restSignal := signal2
+			else
+				restSignal := ConcurSig(firstRes, signal2)
+			end
+			
+	signal-get-length:
+		InputSig(array*) -> <length> array*
+		
+	signal-get-int-array(|varArray*):
+		InputSig(array*) -> res*
+		with
+			(unusedCompTuples*, res*) := <array-to-list(|"error", [], varArray*, [], Integer())> array*
+		
+	signal-get-int-array(|varArray*):
+		Zip(signal1, signal2) -> res*
+		with
+			res1* := <signal-get-int-array(|varArray*)> signal1;
+			res2* := <signal-get-int-array(|varArray*)> signal2;
+			res* := <zip(tuple-to-array); concat>(res1*, res2*)
+			
+	tuple-to-array:
+		(a, b) -> res*
+		with
+			res* := [a, b]
+	
+	signal-get-int-array(|varArray*):
+		ConcurSig(signal1, signal2) -> res*
+		with
+			res1* := <signal-get-int-array(|varArray*)> signal1;
+			res2* := <signal-get-int-array(|varArray*)> signal2;
+			res* := [res1*, res2*]
+			
+	signal-combine:
+		(InputSig(intArray1), InputSig(intArray2)) -> (InputSig(intArrayRes), 1)
+		with
+			intArrayRes := <conc>(intArray1, intArray2)
+			
+	signal-combine:
+		(SigRef(num1, intArray1), SigRef(num2, intArray2)) -> (resSignal, success)
+		with
+			if <eq>(num1, num2) then
+				intArrayRes := <conc>(intArray1, intArray2);
+				resSignal := SigRef(num1, intArrayRes);
+				success := 1
+			else
+				resSignal := ConcurSig(SigRef(num1, intArray1), SigRef(num2, intArray2));
+				success := 0
+			end
+			
+	signal-combine:
+		(signal1, signal2) -> (ConcurSig(signal1, signal2), 0)
+		
+	signal-zip-together:
+		(signal1, signal2) -> res
+		with
+			length1 := <signal-get-length> signal1;
+			length2 := <signal-get-length> signal2;
+				
+			if <eq> (length1, length2) then
+				if <eq>(length1, 1) then
+					(res, success) := <signal-combine>(signal1, signal2)
+				else 
+					(element1, restSignal1) := <signal-separate-first-element> signal1;
+					(element2, restSignal2) := <signal-separate-first-element> signal2;
+					(element, success) := <signal-combine>(element1, element2);
+					rest := <signal-zip-together> (restSignal1, restSignal2);
+					(res, succesRes) := <signal-combine> (element, rest)
+				end
+			else
+				<debug(!"Cannot zip signals of different lengths together. ")> (length1, length2)
+			end

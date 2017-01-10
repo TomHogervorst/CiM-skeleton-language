@@ -1,0 +1,151 @@
+module block-trans
+
+imports
+
+  libstratego-gpp
+  lib/runtime/tmpl/pp
+  src-gen/signatures/Block-sig
+  src-gen/signatures/IntPair-sig
+  intpair-trans
+  helper
+
+rules
+	
+	block-get-pos:
+		Block(pos, _, _) -> pos
+	
+	block-get-angle:
+		Block(_, angle, _) -> angle
+		
+	block-get-flipped-angle:
+		Block(_, angle, mir) -> <mod; int-to-string>(<add>(<mul>(<string-to-int> mir, 180), <string-to-int> angle), 360)
+	
+	block-get-mir:
+		Block(_, _, mir) -> mir
+	
+	block-translate(|shift):
+		Block(pos, angle, mir) -> Block(newpos, angle, mir)
+		with
+			newpos := <intpair-add(|shift)> pos
+			
+	block-shiftX(|shiftX):
+		Block(pos, angle, mir) -> Block(newpos, angle, mir)
+		with
+			newpos := <intpair-addX(|shiftX)> pos
+			
+	block-shiftY(|shiftY):
+		Block(pos, angle, mir) -> Block(newpos, angle, mir)
+		with
+			newpos := <intpair-addY(|shiftY)> pos
+	
+	// parameter a should be integer
+	block-rotate(|a):
+		Block(pos, angle, mir) -> Block(pos, newangle, mir)
+		with
+			temp := <add> (<string-to-int>angle, a)
+			; newangle := <mod; int-to-string> (temp, 360)
+	
+	//parameter a should be an integer
+	block-rotate-around-origin(|a):
+		Block(pos, angle, mir) -> Block(newPos, newAngle, mir)
+		with
+			newPos := <intpair-rotate(|<int-to-string>a)> pos;
+			newAngle := <modS>(<addS>(angle, <int-to-string> a), "360")
+			
+	//parameter flip should be an integer
+	block-flip-in-X(|flip):
+		Block(pos, angle, mir) -> Block(newPos, angle, newMir)
+		with
+			if <eq>(flip, 1) then
+				newMir := <modS>(<addS>(mir, <int-to-string> flip), "2");
+				newPos := <intpair-mirror(|1)> pos
+			else
+				newPos := pos;
+				newMir := mir
+			end
+	
+	block-mirror:
+		Block(pos, angle, mir) -> Block(pos, angle, newmir)
+		with
+			if <is-one> mir
+			then newmir := "0"
+			else newmir := "1"
+			end
+			
+	block-get-bottom-left(|size):
+		block -> <intpairs-get-bottom-left> pair*
+		with
+			pair* := <map(intpair-transform(|block))> [IntPair("0", "0"), size]
+	
+	block-get-top-right(|size):
+		block -> <intpairs-get-top-right> pair*
+		with
+			pair* := <map(intpair-transform(|block))> [IntPair("0", "0"), size]
+	
+	// can also be seen as transform(|mod)
+	block-inherit(|mod):
+		Block(pos, angle, mir) -> Block(newpos, newangle, newmir)
+		with
+			if <eq> (<string-to-int>mir, <block-get-mir; string-to-int>mod)
+			then newmir := "0"
+			else newmir := "1"
+			end
+			; newpos := <intpair-transform(|mod)> pos
+			; temp := <addS; string-to-int> (angle, <block-get-angle> mod)
+			; if <block-get-mir; is-one> mod
+			  then switch <string-to-int> angle
+			  		case ?90: temp1 := <add> (temp, 180)
+			  		case ?270: temp1 := <add> (temp, 180)
+			  		otherwise: temp1 := temp
+			  		end
+			  else temp1 := temp
+			  end
+			; newangle := <mod; int-to-string> (temp1, 360)
+	
+	rotate-to(|newAngle, newMir):
+		Block(pos, angle, mir) -> res 
+		with
+			angleDiff := <subt>(newAngle, <string-to-int> angle);
+			if <eq>(newMir, <string-to-int>mir) then
+				res := angleDiff
+			else
+				res := <mod>(<add>(angleDiff, 180), 360)
+			end	
+	
+  /**
+   * Calculate the transform block for cur moving to a toget state
+   *
+   * block-adjust-to-target(|cur) target -> transform block
+   *
+   * @type Block -> Block
+   */
+	block-adjust-to-target(|cur):
+		Block(pos, angle, mir) -> Block(newpos, newangle, newmir)
+		with
+			if <eq> (<string-to-int>mir, <block-get-mir; string-to-int>cur)
+			then newmir := "1"
+			else newmir := "0"
+			end
+			; a1 := <block-get-angle; string-to-int> cur
+			; if <is-one> newmir
+			  then a2 := <swap-90-270> a1
+			  else a2 := a1
+			  end
+			; a3 := <subt> (<string-to-int> angle, a2)
+			; temp := <mod> (a3, 360)
+			; if <gt> (0, temp)
+			  then newangle := <add; int-to-string> (temp, 360)
+			  else newangle := <int-to-string> temp
+			  end
+			; p1 := <block-get-pos; intpair-transform(|IntPair("0", "0"), newangle, newmir)> cur
+			; newpos := <intpair-sub> (pos, p1)
+
+	block-adjust-to-target:
+		(cur, target) -> <block-adjust-to-target(|cur)> target
+		
+	block-get-orientation:
+		Block(pos, angle, mir) -> res
+		with
+			 realAngle := <mod>(<add>(<string-to-int> angle, <mul>(<string-to-int> mir, 180)), 360);
+			 res := <div>(realAngle, 90)
+			  

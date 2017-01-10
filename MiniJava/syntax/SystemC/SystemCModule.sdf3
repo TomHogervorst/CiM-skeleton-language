@@ -1,0 +1,67 @@
+module SystemC/SystemCModule
+
+imports
+  Common
+  
+sorts
+  SystemCModuleDecls
+  SystemCModuleConnects
+  
+context-free start-symbols
+  SystemCModuleDecls
+  SystemCModuleConnects
+  
+template options
+  tokenize: "()"
+  tokenize: "[]"
+  
+context-free syntax
+ 
+/*  RegDecls.InputRegDecls = <reg\<<INT>\> *r<INT>_<INT>;
+sc_signal\<sc_int\<32\> \> r<INT>_<INT>_out;
+sc_signal\<bool\> r<INT>_<INT>_done;>*/
+ 
+  SystemCModuleDecls.SystemCModuleDecls = <<ID> *mod<INT>;
+sc_signal\<sc_int\<32\> \> mod<INT>_out;
+sc_signal\<bool\> mod<INT>_done;>
+
+//<{RegDecls "\n"}+>>
+    
+/* RegConnect.RegConnect=<r<INT>_<INT> = new reg\<<INT>\>("r<INT>_<INT>");
+r<INT>_<INT>-\>clk(clk);
+r<INT>_<INT>-\>reset(reset);
+r<INT>_<INT>-\>data_out(r<INT>_<INT>_out);
+r<INT>_<INT>-\>done(r<INT>_<INT>_done);
+mod<INT>-\>input<INT>(r<INT>_<INT>_out);
+mod<INT>-\>valid<INT>(r<INT>_<INT>_done);>*/
+ 
+ CommonConnects.OutputConnects = <mod<INT> = new <ID>("mod<INT>");
+mod<INT>-\>clk(clk);
+mod<INT>-\>reset(reset);>
+
+//<{RegConnect "\n\n"}+>>
+ 
+ CommonConnects.CommonConnects = <mod<INT> = new <ID>("mod<INT>");
+mod<INT>-\>clk(clk);
+mod<INT>-\>reset(reset);
+mod<INT>-\>output(mod<INT>_out);
+mod<INT>-\>done(mod<INT>_done);>
+
+//<{RegConnect "\n\n"}+>>
+     
+ModConnects.InputModConnects = <mod<INT>-\>input<INT>(input_sigs[<INT>]);
+mod<INT>-\>valid<INT>(valid);>
+ 
+ModConnects.ModConnects = <mod<INT>-\>input<INT>(mod<INT>_out);
+mod<INT>-\>valid<INT>(mod<INT>_done);>
+ 	
+ SystemCModuleConnects.SystemCModuleConnects = <<CommonConnects>
+ 
+<{ModConnects "\n"}+>>
+    
+SystemCModuleConnects.SystemCOutModuleConnects = <<CommonConnects>
+
+<{ModConnects "\n"}+>
+
+mod<INT>-\>output(output_sigs[<INT>]);
+mod<INT>-\>done(done[<INT>]);>

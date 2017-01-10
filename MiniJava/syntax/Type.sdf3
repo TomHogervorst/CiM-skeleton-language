@@ -1,0 +1,19 @@
+module Type
+
+imports
+  Common
+  
+sorts
+  Type
+  
+context-free start-symbols
+  Type
+  
+context-free syntax
+
+Type.Integer = <int>
+Type.Array = <<Type>[]>
+Type.Boolean = <bool>
+Type.Skeleton = <comp>
+Type.Coordinate = <coord>
+Type.Port = <port>

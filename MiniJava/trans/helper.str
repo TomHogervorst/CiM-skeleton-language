@@ -1,0 +1,257 @@
+module helper
+
+imports
+	src-gen/signatures/IntPair-sig
+
+rules
+	// convert the position of the argument
+	arg-to-tuple(s|arg):
+		target -> <s> (arg, target)
+		
+	// convert tuple argument to Aterm argument
+	// does not work. do not know the reason...
+	tuple-to-arg(s):
+		(arg, target) -> <s(|arg)> target
+		
+	split-in(|n):
+		array* -> arrays*
+		with
+			indicesPerElement := <div>(<length> array*, n);
+			arrays* := <take-continuously(|indicesPerElement)> array*
+			
+	take-continuously(|size):
+		[] -> []		
+	
+	take-continuously(|size):
+		array* -> res*
+		with
+			thisPart := <take(|size)> array*;
+			thatPart* := <drop(|size); take-continuously(|size)> array*;
+			res* := [thisPart, thatPart*]
+	
+	/*
+	* Apply s to a list, whose accumulation path forms a new list
+	* Example: <scan(add)> ([1, 2, 3, 4], [0]) -> [0, 1, 3, 6, 10]
+	* @type (list(a), list(b)) -> list(b)
+	*
+	* @param (a, b) -> b
+	*/
+	scan(s) = foldl(list-append(s))
+			
+	list-append(s):
+		(a, list*) -> new*
+		with
+			b := <s> (a, <last> list*)
+			; new* := <conc> (list*, [b])
+
+    /*
+    * Enlarge a list with some value shifted
+    * 
+    * Example: <shift-with-indices(intpair-addx|3, 5)> [(1.1),(1.2)]
+    * => [(1.1),(1.2),(6.1),(6.2),(11.1),(11.2)]
+    *
+    * @type List(a) -> List(a)
+    *
+    * @param s: a strategy impose the shift to a sort
+    *        type: a, int -> a
+    *        example: <intpair-addx> ((1.1), 5) -> (6.1)
+    * @param n: repeate times
+    * @param dif: the difference of value between two repeated times 
+    */
+    shift-with-indices(s|n, dif):
+    	list* -> longList*
+    	with
+        	 temp* := <copy; concat>(n, list*)
+	    	; shift* := <natural; map(int-mul(|dif))> n
+	    	; diff* := <map(arg-to-tuple(copy|<length> list*)); concat> shift*
+	    	; longList* := <zip(s)> (temp*, diff*)	
+    
+	int-mul(|y):
+		x -> product
+		with
+			product := <muli>(x, y)
+			
+	mulS(|y):
+	  x -> <mulS>(x, y)
+	
+	// [0, 1, 2, ..., n-1]		
+	natural=
+    for(\ n -> (n,[]) \
+       ,\ (0,ts) -> ts \
+       ,\ (n,ts) -> (<subt>(n,1), [<subt>(n,1)|ts]) where <geq>(n,1) \ )
+    
+    is-one:
+    	x -> <eq>(<string-to-int>x, 1)
+    	
+    swap-90-270:
+    	x -> y
+    	with
+    		switch !x
+				case ?90: y := 270
+		  		case ?270: y := 90
+		  		otherwise: y := x
+	  		end
+	
+	uneven-zip(s):
+		(list1*, list2*) -> list*
+		with
+			length1 := <length> list1*;
+			length2 := <length> list2*;
+			if <gt>(length1, length2) then
+				thisList1* := <take(|length2)> list1*;
+				firstHalf* := <zip(s)>(thisList1*, list2*);
+				secondHalf* := <drop(|length2)> list1*
+			else
+				thisList2* := <take(|length1)> list2*;
+				firstHalf* := <zip(s)>(list1*, thisList2*);
+				secondHalf* := <drop(|length1)> list2*
+			end;
+			list* := [firstHalf*, secondHalf*]
+	  		
+	/*
+	* Split a lists into n lists. The initial splited lists have m elements.
+	* Example: <list-split> ([1,2,3,4,5],2,4) -> [[1,2], [3,4], [5], []]
+	* @type (list(a), int, int) -> list(b)
+	*/
+	list-split:
+		(list*, m, n) -> new*
+		with
+			(_, _, _, new*) := <repeat-until(list-split, ?(_,_,0,_))> (list*, m, n, [])
+
+	list-split:
+		(list*, m, n, temp*) -> (new*, m, newN, update*)
+		with
+			len := <length> list*
+			; if <eq> (len, 0)
+			  then new* := []
+			       ; newN := 0
+			       ; update* := <conc> (temp*, <copy> (n, []))
+			  else if <leq> (len, m)
+			       then new* := []
+			            ; newN := <subt>(n, 1)
+			            ; update* := <conc> (temp*, <MkSingleton>list*)
+			       else new* := <drop(|m)> list*
+			            ; newN := <subt>(n, 1)
+			            ; update* := <conc> (temp*, [<take(|m)>list*])
+			       end
+			   end
+			   
+		smallest-of:
+			(int1, int2) -> res
+			with
+				if <gt>(int1, int2) then
+					res := int2
+				else
+					res := int1
+				end
+			   
+		pow(|n):
+			num -> res
+			with
+				if <leq> (num, 0)
+				then res := 1
+				else newNum := <subt>(num, 1);
+					res := <mul>(<pow(|n)> newNum, n)
+				end
+				
+		int-sqrt:
+			num -> res
+			with
+				res := <find-sqrt(|1)> num
+				
+		find-sqrt(|num):
+			n -> res
+			with
+				square := <mul>(num, num);
+				if <gt> (square, n)
+				then res := <subt>(num,1)
+				else newNum := <add> (num, 1);
+					res := <find-sqrt(|newNum)> n
+				end	
+					
+		merge:
+			(elem1, elem2) -> res*
+			with
+				if <gt>(<length>elem1, -1) then
+					res1* := elem1
+				else
+					res1* := [elem1]
+				end;
+				if <gt>(<length>elem2, -1) then
+					res2* := elem2
+				else
+					res2* := [elem2]
+				end;
+				res* := [res1*, res2*]
+				
+		uneven-merge:
+		([elem1 | array1*], [elem2 | array2*]) -> res*
+		with
+			thisRes := <merge>(elem1, elem2);
+			thatRes* := <uneven-merge>(array1*, array2*);
+			res* := [thisRes, thatRes*]
+	
+		uneven-merge:
+			([], array2*) -> array2*
+		
+		uneven-merge:
+			(array1*, []) -> array1*
+		
+		uneven-merge:
+			([], []) -> res*
+			with
+				res* := []
+				
+		to-list:
+			[list|list*] -> [list,list*]
+			
+		to-list:
+			noList -> [noList]
+				
+		add-int-at-index:
+			(index, element, array*) -> resArray*
+			with
+				if <gt> (index, <length> array*) then
+					diff := <subt>(1, <subt>(index, <length> array*));
+					zeroes* := <copy>(diff, 0);
+					newArray* := [array*, zeroes*];
+					element* := [element];
+					resArray* := [newArray*, element*]
+				else
+					resArray* := <set-index>(<subt>(index, 1), element, array*)
+				end
+				
+		set-indices:
+			([index | indices*], [elem | elems*], array*) -> resArray*
+			with
+				newArray* := <set-index>(index, elem, array*);
+				resArray* := <set-indices>(indices*, elems*, newArray*)
+				
+		set-indices:
+			([], [], array*) -> array*
+			
+		set-indices:
+			(incorrect, arrays, array*) -> <debug(!"Cannot assign array to array of different length.");fail>
+					
+		tuple-gety:
+			(x, y) -> y
+		
+		tuple-getx:
+			(x, y) -> x
+			
+		lt-X: ((a, _), (b, _)) -> <lt>(a, b)
+			
+		tuple-apply-on-y(rule):
+			(x, y) -> (x, <rule> y)
+			
+		tuple-apply-on-x(rule):
+			(x, y) -> (<rule> x, y)
+			
+		tuple-addX(|n):
+			(x, y) -> (<add>(x, n), y)
+
+		intpair-to-tuple:
+			IntPair(x, y) -> (<string-to-int> x, <string-to-int> y)
+			
+		tuple-to-intpair:
+		(x, y) -> IntPair(<int-to-string> x, <int-to-string>y)

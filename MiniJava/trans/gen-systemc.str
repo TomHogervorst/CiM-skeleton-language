@@ -1,0 +1,116 @@
+module gen-systemc
+
+imports
+  libstratego-gpp
+  src-gen/signatures/SystemC/-
+  src-gen/signatures/mapped/-
+  gen-mapping
+  gen-dfg
+  pp
+  program-trans
+  helper
+
+rules
+	
+gen-systemc:
+	ast -> result
+    with
+      dfg := <gen-dfg> ast;
+      (inputSize, outputSize, signalSizes*) := <get-main-sizes> ast;
+	  mapping := <dfg-to-mapping(|ast)> dfg;
+	  result := <mapping-to-systemc(|inputSize, outputSize); pp-start-symbols; !V([], <id>); box2text-string(|120)> mapping
+	  
+mapping-to-systemc(|inputSize, outputSize):
+	MappedSystem(varDecls*, modules*) -> HeaderFile(<int-to-string> inputSize, <int-to-string> outputSize, decls*, mods*)
+	with
+		//<debug>"Started mapping-to-systemc. ";
+		(decls*, mods*) := <map-with-index(mapping-to-systemc); unzip>modules*
+	
+mapping-to-systemc:
+	(index, SingleModule(moduleNum, mod)) -> <module-to-systemc(|moduleNum)> mod
+	
+mapping-to-systemc:
+	(index, OutputModule(outputNum, mod)) -> <output-to-systemc(|<int-to-string> index, outputNum)> mod
+	
+module-to-systemc(|moduleNum):
+	MappedModule(modId, _, _, _, _, _, _, _, inputPorts*) -> (<module-to-decls(|moduleNum)>(modId, inputPorts*), SystemCModuleConnects(<common-connects(|modId)>(moduleNum, inputPorts*), <map-with-index(port-to-connects(|moduleNum))> inputPorts*))
+	/*with
+		<debug(!"Started module-to-systemc. ")>(modId, inputPorts*)*/
+	
+output-to-systemc(|moduleNum, outputNum):
+	MappedModule(modId, _, _, _, _, _, _, _, inputPorts*) -> (<module-to-decls(|moduleNum)>(modId, inputPorts*), SystemCOutModuleConnects(<output-connects(|modId)>(moduleNum, inputPorts*), <map-with-index(port-to-connects(|moduleNum))> inputPorts*, moduleNum, <subtS>(outputNum, "1"), moduleNum, <subtS>(outputNum, "1")))
+	/*with
+		<debug>"Started output-to-systemc. "*/
+	
+module-to-decls(|moduleNum):
+	(modId, inputPorts*) -> SystemCModuleDecls(<id-to-module-name> modId, moduleNum, moduleNum, moduleNum) //
+
+/*port-to-decl(|moduleNum):
+	(index, port) -> InputRegDecls(length, moduleNum, stringIndex, moduleNum, stringIndex, moduleNum, stringIndex)
+	with
+		stringIndex := <int-to-string> index;
+		length := <port-get-length; int-to-string> port*/
+	
+common-connects(|modId):
+	(moduleNum, inputPorts*) -> CommonConnects(moduleNum, <id-to-module-name> modId, moduleNum, moduleNum, moduleNum, moduleNum, moduleNum, moduleNum, moduleNum) //, <map-with-index(port-to-reg-connect(|moduleNum))>inputPorts*
+	/*with
+		<debug>"Started common-connects."*/
+
+output-connects(|modId):
+	(moduleNum, inputPorts*) -> OutputConnects(moduleNum, <id-to-module-name> modId, moduleNum, moduleNum, moduleNum) //, <map-with-index(port-to-reg-connect(|moduleNum))>inputPorts*
+
+/*port-to-reg-connect(|moduleNum):
+	(index, port) -> RegConnect(moduleNum, stringIndex, <port-get-length; int-to-string> port, moduleNum, stringIndex, moduleNum, stringIndex, moduleNum, stringIndex, moduleNum, stringIndex, moduleNum, stringIndex, moduleNum, stringIndex, moduleNum, stringIndex, moduleNum, stringIndex, moduleNum, stringIndex, moduleNum, stringIndex, moduleNum, stringIndex)
+	with
+		stringIndex := <int-to-string> index
+*/
+port-to-connects(|moduleNum):
+	(index, MappedInputPort(num, length, _)) -> InputModConnects(moduleNum, stringIndex, <subtS>(num, "1"), moduleNum, stringIndex)
+	with
+		<debug(!"InputModConnects inputs: ")>(moduleNum, index, num, length);
+		stringIndex := <int-to-string> index
+		
+port-to-connects(|moduleNum):
+	(index, MappedModulePort(num, length, _)) -> ModConnects(moduleNum, stringIndex, num, moduleNum, stringIndex, num)
+	with
+		//<debug>"Started ports-to-connects.";
+		stringIndex := <int-to-string> index
+
+port-get-length:
+	MappedModulePort(num, length, _) -> length
+	
+port-get-length:
+	MappedInputPort(num, length, _) -> length
+	
+id-to-module-name:
+	"-1" -> "mir"
+	
+id-to-module-name:
+	"0" -> "nop"
+
+id-to-module-name:
+	"1" -> "adder_signed"
+	
+id-to-module-name:
+	"2" -> "multiplier_signed"
+	
+id-to-module-name:
+	"3" -> "subtractor_signed"
+	
+id-to-module-name:
+	"4" -> "divider_signed"
+	
+id-to-module-name:
+	"5" -> "gt"
+	
+id-to-module-name:
+	"6" -> "mux2"
+	
+id-to-module-name:
+	"7" -> "LUT"
+	
+id-to-module-name:
+	"8" -> "GO"
+
+id-to-module-name:
+	"9" -> "gap"

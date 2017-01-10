@@ -1,0 +1,77 @@
+module graphics/DrawSystem
+
+imports
+  Common
+  graphics/DrawBlock
+  
+sorts
+  DrawSystem
+  
+context-free start-symbols
+  DrawSystem
+  
+template options
+  tokenize: "()"
+  tokenize: "[]"
+
+context-free syntax
+  DrawSystem.DrawModule = <PS_setcolor(ps, "both", "gray", 0, 0.0, 0.0, 0.0);
+<DrawBlock>
+PS_setcolor(ps, "both", "rgb", 1, 0.0, 0.0, 0.0);
+<{DrawBlock "\n  "}*>
+PS_setcolor(ps, "both", "rgb", 0, 1, 0.0, 0.0);
+<{DrawBlock "\n  "}*>
+PS_setcolor(ps, "both", "rgb", 0, 0, 1, 0.0);
+<{DrawConnection "\n"}*>>
+
+  DrawSystem.DrawSystem = <#include \<libps/pslib.h\>
+#include \<stdio.h\>
+#include \<stdlib.h\>
+
+void DrawBlock(PSDoc *ps, int pos_x, int pos_y, int size_x, int size_y, int angle, int mir)
+{
+  PS_save(ps);
+
+  PS_translate(ps, pos_x, pos_y);
+  PS_rotate(ps, angle);
+  if (mir)
+  {
+    PS_scale(ps, 1, -1);
+  }
+
+  PS_rect(ps, 0, 0, size_x, size_y);
+  PS_stroke(ps);
+
+  PS_restore(ps);
+}
+
+void DrawConnection(PSDoc *ps, int sourceX, int sourceY, int targetX, int targetY)
+{
+  PS_save(ps);
+  PS_moveto(ps, sourceX, sourceY);
+  PS_lineto(ps, targetX, targetY);
+  PS_stroke(ps);
+  PS_restore(ps);
+}
+
+int main(int argc, char* argv[])
+{
+  PSDoc *ps;
+  PS_boot();
+  ps = PS_new();
+  if (0 \> PS_open_file(ps, "modules.ps")) {
+    printf("Cannot open PostScript file\\n");
+    exit(1);
+  }
+  PS_begin_page(ps, <INT>, <INT>);
+  PS_translate(ps, 100, 100);
+  DrawBlock(ps, 0, 0, <INT>, <INT>, 0, 0);
+  
+  <{DrawSystem "\n"}*>
+  
+  PS_end_page(ps);
+  PS_close(ps);
+  PS_delete(ps);
+  PS_shutdown();
+  return 0;
+ }>

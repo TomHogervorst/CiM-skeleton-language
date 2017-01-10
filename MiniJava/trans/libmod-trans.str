@@ -1,0 +1,49 @@
+module libmod-trans
+
+imports
+  libstratego-gpp
+  lib/runtime/tmpl/pp
+  src-gen/signatures/LibMod-sig
+  
+rules
+  
+	libmod-get-size:
+		LibMod(_, size, _, _, _, _) -> size
+		
+	libmod-get-latency:
+		LibMod(_, size, latency, _, _, _) -> latency
+		
+	libmod-get-energy:
+		LibMod(_, size, latency, energy, _, _) -> energy
+		
+	libmod-get-inputs:
+		LibMod(_, _, _, _, input*, output*) -> input*
+		
+	libmod-get-outputs:
+		LibMod(_, _, _, _, input*, output*) -> output*
+		
+	libmod-get-input-num:
+		LibMod(_, _, _, _, input*, output*) -> <length>input*
+		
+	libmod-get-output-num:
+		LibMod(_, _, _, _, input*, output*) -> <length>output*
+		
+	libmod-get-input(|i):
+		LibMod(_, size, _, _, input*, _) -> block
+		with
+	      len := <length> input*
+	      ; if <geq> (len, i)
+	        then block := <index(|i)> input* 
+	        else <debug(!"Index is too large: ")> i
+	        end
+		
+	libmod-get-output(|i):
+		LibMod(_, size, _, _, input*, output*) -> block
+		with
+	      len := <length> output*
+	      ; if <geq> (len, i)
+	        then block := <index(|i)> output* 
+	        else <debug(!"Index is too large: ")> i
+	        end
+	        
+	        

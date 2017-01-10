@@ -1,0 +1,86 @@
+module lib
+  
+imports
+  /*
+  lib/runtime/nabl/uri
+  lib/runtime/nabl/collect
+  lib/runtime/nabl/utils
+  lib/runtime/task/utils
+  lib/runtime/properties/collect
+  lib/runtime/properties/query
+  lib/runtime/properties/eq
+  lib/runtime/types/collect
+  lib/runtime/editor/origins
+  */
+  src-gen/signatures/LibMod-sig
+  src-gen/signatures/MiniJava-sig
+  src-gen/signatures/Signal-sig
+  src-gen/signatures/Statement-sig
+  src-gen/signatures/Entity-sig
+  src-gen/signatures/Common-sig
+  src-gen/signatures/Type-sig
+  src-gen/signatures/Expression-sig
+  src-gen/signatures/Skeleton-sig
+
+namespaces
+
+  Library
+  Component
+  Signal
+  Variable
+  Module
+  Skeleton
+  
+binding rules
+
+  LibMod(name, _, _, _, _, _): defines Library name of type Skeleton()
+  
+  Program(_, _, _, _, _): scopes Library, Component, Skeleton
+  
+  Skeleton(name, _,  _, _, _): defines Skeleton name scopes Module, Variable
+  
+  Entity(name, _, _, args*, _): defines Component name of type (Skeleton(), a_t*) 
+  	where args* has type a_t* 
+  	scopes Signal, Variable
+  CompRef(name, _): refers to Component name
+  
+  Main(_, _, _, _): scopes Signal, Variable 
+  
+  SignalDecl(name, size): defines Signal name
+  SigArg(name, size): defines Signal name 
+  SignalAssign(name, _, _, _): refers to Signal name
+  SigRef(name, _): refers to Signal name
+  
+  ModRef(name, index): refers to Module name
+  SingleModRef(name): refers to Module name
+  ModArg(_, _, name, _): defines Module name
+  SingleModArg(_, _, name): defines Module name
+  CompAttrAssign(name, index, attr, exp): refers to Module name
+  SingleCompAttrAssign(name, attr, exp): refers to Module name
+  
+  ArgDecl(t, name): defines Variable name of type t
+  VarDecl(t, name): defines Variable name of type t
+  VarDeclInit(t, name, _): defines Variable name of type t
+  
+  
+  VarAssign(name, _): refers to Variable name
+  Var(name): refers to Variable name
+  ArrayAssign(name, _, _): refers to Variable name 
+  VarRef(name) : refers to Variable name otherwise refers to Module name otherwise refers to Library name
+  SkelLoop(_, name, _, _): refers to Variable name
+  
+  ConnOp(name): refers to Skeleton name
+  
+  ArrayLoop(name, _, _): refers to Variable name
+  ConcurSigLoop(name, _, _): refers to Variable name
+  Map(name, _, _): refers to Variable name
+  ForLoop(name, _, _): refers to Variable name
+ 
+properties
+
+  lib-index of Library: Int
+  sig-index of Signal: Int
+  var-index of Variable: Int
+  comp-index of Component: Int
+  mod-index of Module: Int
+  skel-index of Skeleton: Int

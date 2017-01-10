@@ -1,0 +1,19 @@
+module Block
+
+imports
+  Common
+  IntPair
+  
+sorts
+  Block
+  
+context-free start-symbols
+  Block
+  
+template options
+  tokenize: "()[]"
+  keyword -/- [a-zA-Z]
+
+context-free syntax
+  //              position,  angle,  mirror
+  Block.Block = <(<IntPair>, <INT>, <INT>)> 

@@ -1,0 +1,1302 @@
+module gen-dfg
+
+imports
+
+  libstratego-gpp
+  lib/runtime/tmpl/pp
+  src-gen/signatures/Expression-sig
+  src-gen/signatures/System-sig
+  src-gen/signatures/Module-sig
+  src-gen/signatures/Block-sig
+  src-gen/signatures/IntPair-sig
+  src-gen/signatures/Statement-sig
+  src-gen/signatures/Signal-sig
+  src-gen/signatures/Skeleton-sig
+  src-gen/signatures/Type-sig
+  program-trans
+  libmod-trans
+  intpair-trans
+  block-trans
+  system-trans
+  module-trans
+  exp-trans
+  helper
+  skeleton-trans
+  statement-trans
+  lib
+  deref
+  pp
+  minijava
+  runtime/types/query
+  
+strategies
+	remove-vars(|varArray) = topdown(try(remove-var(|varArray)))
+
+rules
+
+   gen-dfg:
+   	ast -> system
+   	with
+   		(tuples*, skeletons*, statements*) := <unroll-and-dereference(|ast)> ast;
+   		systemTuples* := <tuples-to-dfg(|ast, [], skeletons*)> tuples*;
+   		system := <main-to-dfg(|ast, systemTuples*, skeletons*)> statements*
+   		
+	tuples-to-dfg(|ast, systemTuples*, skeletons*):
+		tuples* -> resSystemTuples*
+		with
+			if <gt>(<length> tuples*, 0) then 
+				thisTuple := <last> tuples*;
+				thisX := <tuple-getx> thisTuple;
+				compIndex := <tuple-getx> thisX;
+				args* := <tuple-gety> thisX;
+				thisY := <tuple-gety; shift-right(|1)> thisTuple;
+				systemArray* := <copy>(<add>(<get-comp-signal-num(|compIndex)> ast, 1), System([], [], [], IntPair("0", "0"), "0", "0")); 
+				(inputSize, outputSize) := <get-comp-in-out-nums(|compIndex, args*)> ast;
+				theseSystems* := <statements-to-dfg(|ast, systemArray*, systemTuples*, inputSize, 1, skeletons*); shift-left(|1)> thisY;
+				thisSystem := <filter(is-not-empty); add-nops(|ast); connect-without-sorting(|ast)> theseSystems*;
+				newTuple* := [(thisX, thisSystem)];
+				newSystemTuples* := [systemTuples*, newTuple*];
+				if	<eq>(<length> tuples*, 1) then
+					resSystemTuples* := newSystemTuples*
+				else
+					thatTuples* := <take(|<subt>(<length> tuples*, 1))> tuples*;
+					resSystemTuples* := <tuples-to-dfg(|ast, newSystemTuples*, skeletons*)> thatTuples*
+				end
+			else
+				resSystemTuples* := []
+			end
+
+	/*
+		ast-to-dfg for skeletons
+	*/
+   
+   ast-to-dfg(|ast, systemTuples*, skeletonArray*):
+     [skeleton | skeletons*] -> resSystems*
+     with
+     	system1 := <ast-to-dfg(|ast, systemTuples*, skeletonArray*)> skeleton;
+     	systems* := <map(ast-to-dfg(|ast, systemTuples*, skeletonArray*)); foldr(![], merge)> skeletons*;
+     	resSystems* := [system1, systems*]
+     	//system := <system-map-together(|ast)>[system1, systems*]
+   
+   ast-to-dfg(|ast, systemTuples*, skeletons*):
+   	 LibModNum(string) -> System(module*, input*, output*, size, latency, energy)
+   	 with
+   	 	num := <string-to-int> string
+   	 	; libmod := <get-libmod(|num)> ast
+   	 	; incrementArray* := <copy; map-with-index(tuple-getx)>(<libmod-get-output-num> libmod, 0)
+   	 	; sources* := <zip(tuple-to-intpair)>(<copy>(<libmod-get-output-num> libmod, 0), incrementArray*)
+   	 	; module* := [Module(string,
+   	 	  					 "0",
+   	 	  					 Block(IntPair("0", "0"), "0", "0"),
+   	 	  					 sources*)
+   	 	  			  ]
+   	 	; size := <libmod-get-size> libmod
+   	 	; latency := <libmod-get-latency> libmod
+   	 	; energy := <libmod-get-energy> libmod
+   	 	; tmpin* := <copy>(<libmod-get-input-num> libmod, Input([IntPair("1", "1")]))
+   	 	; input* := <nmap(input-sety|1)> tmpin*
+   	 	; tmpout* := <copy>(<libmod-get-output-num> libmod, IntPair("1", "1"))
+   	 	; output* := <nmap(intpair-sety|1)> tmpout*
+   	 	  
+   ast-to-dfg(|ast, systemTuples*, skeletons*):
+   	Nop() -> System([Module("0",
+   	 	  					 "0",
+   	 	  					 Block(IntPair("0", "0"), "90", "1"),
+   	 	  					 [])],
+   	 	  			[Input([IntPair("1", "1")])], 
+   	 	  			[IntPair("1", "1")], 
+   	 	  			IntPair("32", "1"), "0", "0")
+   	 	  			
+   ast-to-dfg(|ast, systemTuples*, skeletons*):
+   	Connect(skel, ConnOp(num), r) -> system
+   	with
+   		upstream := <ast-to-dfg(|ast, systemTuples*, skeletons*)> skel;
+  	 	downstream := <ast-to-dfg(|ast, systemTuples*, skeletons*)> r;
+  	 	currentSkeleton := <index(|num)> skeletons*;
+  	 	system := <connect-with-skeleton(|ast)>(upstream, currentSkeleton,  <to-list> downstream)
+  	 	
+   ast-to-dfg(|ast, systemTuples*, skeletons*):
+   	 Connect(skel, HTree(),r) -> system
+   	 with
+   	 	// check whether this operator can be solved by H-tree layout
+   	 	(subsys*, n*) := <skeleton-get-tree-structure(|ast, systemTuples*, skeletons*); debug(!"Get tree structure result: ")> Connect(skel, HTree(), r)
+   	 	; system := <system-tree-reduce(|ast)> (subsys*, n*)
+   	 	  
+   	ast-to-dfg(|ast, systemTuples*, skeletons*):
+   	 	Connect(skel, Linear(), r) -> <skeleton-get-linear-system(|ast, systemTuples*, skeletons*)>  Connect(skel, Linear(), r)
+   	
+   	ast-to-dfg(|ast, systemTuples*, skeletons*):
+   		Connect(skel1, Crowd(), skel2) -> res
+   		with
+   			mappedSys1* := <ast-to-dfg(|ast, systemTuples*, skeletons*); to-list> skel1;
+   			mappedSys2* := <ast-to-dfg(|ast, systemTuples*, skeletons*); to-list> skel2;
+   			res := <system-map-together(|ast, 1)>[mappedSys1*, mappedSys2*]
+   			
+   	ast-to-dfg(|ast, systemTuples*, skeletons*):
+   		CompRef((num, args*), sizes*) -> <lookup>((num, args*), systemTuples*)
+   			
+   	ast-to-dfg(|ast, systemTuples*, skeletons*):
+		[] -> res*
+		with
+			res* := []
+			
+	connect-with-skeleton(|ast):
+		(sys1*, Skeleton(name, ModArg(usInSize, usOutSize, usName, usSize), ModArg(dsInSize, dsOutSize, dsName, dsSize), _, statements*), sys2*) -> resSystems*
+		with
+			systems1* := <to-list> sys1*;
+			systems2* := <to-list> sys2*;
+			(loopnum1, inVars*) := <init-var-array(|[])> (usInSize, usOutSize, usSize, systems1*);
+			(loopnum2, inoutVars*) := <init-var-array(|inVars*)> (dsInSize, dsOutSize, dsSize, systems2*);
+			if <eq> (loopnum1, loopnum2) then
+				inoutModSizes* := ((<mod-int-to-int(|inoutVars*)> usInSize, <mod-int-to-int(|inoutVars*)> usOutSize, <div>(<exp-to-int(|"Error", inoutVars*, [])> usSize, loopnum1)), (<mod-int-to-int(|inoutVars*)> dsInSize, <mod-int-to-int(|inoutVars*)> dsOutSize, <div>(<exp-to-int(|"Error", inoutVars*, [])> dsSize, loopnum2)));
+				(connectRules*, unused*) := <skeleton-to-rules(|inoutVars*)> statements*;
+				systemsArray1* := <split-in(|loopnum1)> systems1*;
+				systemsArray2* := <split-in(|loopnum2)> systems2*;
+				resSystems* := <zip(map-with-rules(|ast, connectRules*, inoutModSizes*))>(systemsArray1*, systemsArray2*)
+			else
+				<debug(!"Cannot connect these two systems with this skeleton.")>(systems1*, loopnum1, systems2*, loopnum2);
+				resSystems* := <fail>
+			end
+	
+	init-var-array(|varArray*):
+		(inSize, outSize, size, systems*) -> (loopNum, resVarArray*)
+		with
+			if <get-var-name> size then
+				varIndex1 := <get-var-name; get-var-index> size;
+				loopNum := 1;
+				varArray1* := <add-int-at-index>(varIndex1, <length> systems*, varArray*)
+			else
+				varArray1* := varArray*;
+				loopNum := <div>(<length> systems*, <exp-to-int(|"Error", [], [])> size)
+			end;
+			if <get-var-name> inSize then
+				varIndex2 := <get-var-name; get-var-index> inSize;
+				varArray2* := <add-int-at-index>(varIndex2, <index(|1); system-get-input-num> systems*, varArray1*)
+			else
+				varArray2* := varArray1*
+			end;
+			if <get-var-name> outSize then
+				varIndex3 := <get-var-name; get-var-index> outSize;
+				resVarArray* := <add-int-at-index>(varIndex3, <div>(<index(|1); system-get-output-num> systems*, loopNum), varArray2*)
+			else
+				resVarArray* := varArray2*
+			end
+		
+	mod-int-to-int(|varArray*):
+		Int(num) -> <string-to-int> num
+		
+	mod-int-to-int(|varArray*):
+		Var(name) -> <index(|<get-var-index> name)> varArray*
+		
+	mod-int-to-int(|varArray*):
+		Any() -> 0
+	
+	skeleton-to-rules(|varArray*):
+		[statement | statements*] -> (resRules*, resVarArray*)
+   		with
+   			(thisRule*, newVarArray*) := <statement-to-rule(|varArray*)> statement;
+   			
+   			(thatRules*, resVarArray*) := <skeleton-to-rules(|newVarArray*)> statements*;
+   			resRules* := [thisRule*, thatRules*]
+   			
+   	skeleton-to-rules(|varArray*):
+   		[] -> ([], varArray*)
+   		
+   	statement-to-rule(|varArray*):
+   		VarDeclInit(type, name, exp) -> ([], resVarArray*)
+   		with
+   			(unused*, newElement) := <deref-by-type(|"Error", [], varArray*, [])>(type, exp);
+   			varIndex := <get-var-index> name;
+   			resVarArray* := <add-int-at-index>(varIndex, newElement, varArray*)
+   			
+   	statement-to-rule(|varArray*):
+   		IfThenElse(cond, statements1*, statements2*) -> (resRules*, resVarArray*)
+   		with
+   			(unused*, condInt) := <deref-by-type(|"Error", [], varArray*, [])> (Boolean(), cond);
+   			if <eq>(condInt, 1) then
+   				(resRules*, resVarArray*) := <skeleton-to-rules(|varArray*)> statements1*
+			else
+				 (resRules*, resVarArray*) := <skeleton-to-rules(|varArray*)> statements2*
+			end
+			
+	statement-to-rule(|varArray*):
+		WhileLoop(value, statements*) -> (resRules*, resVarArray*)
+		with
+			(unused*, condValue) := <deref-by-type(|"Error", [], varArray*, [])> (Boolean(), value);
+			if <eq>(condValue, 0) then
+				resVarArray* := varArray*;
+				resRules* := []
+			else
+				(thisRules*, newVarArray*) := <skeleton-to-rules(|varArray*)> statements*;
+				(thatRules*, resVarArray*) := <statement-to-rule(|newVarArray*)> WhileLoop(value, statements*);
+				resRules* := [thisRules*, thatRules*]
+			end
+   			
+   	statement-to-rule(|varArray*):
+   		ForLoop(name, array*, statements*) -> (resRules*, resVarArray*)
+		with
+			arrayType := <get-type;  array-get-type> array*;
+			(unused*, derefedArray*) := <array-to-list(|"Error", [], varArray*, [], arrayType)> array*;
+			varIndex := <get-var-index> name;
+			(resRules*, resVarArray*) := <loop-over-array(| varIndex, statements*, varArray*)> derefedArray*
+	
+	statement-to-rule(|varArray*):
+		CompAttrAssign(name, array*, attr, exp) -> (resRules*, varArray*)
+		with
+			compIndex := <get-mod-index> name;
+			(unused, intArray*) :=  <array-to-list(|"Error", [], varArray*, [], Integer())> array*;
+			dereffedExp :=  <remove-vars(|varArray*)> exp;
+			resRules* := [(compIndex, <map(inc)> intArray*, <remove-vars(|varArray*)>attr{}, dereffedExp)]
+			
+	statement-to-rule(|varArray*):
+		VarAssign(name, exp) -> ([], resVarArray*)
+		with
+			type := <get-type> name;
+			(newCompTuples*, elem) := <deref-by-type(|"Error", [], varArray*, [])>(type, exp);
+			index := <get-var-index> name;
+			realIndex := <subt>(index, 1);
+			resVarArray* := <set-index> (realIndex, elem, varArray*)
+			
+	statement-to-rule(|varArray*):
+		ArrayAssign(name, array, exp) -> ([], resVarArray*)
+		with
+			index := <get-var-index> name;
+			type := <get-type> name;
+			realIndex := <subt>(index, 1);
+			(newCompTuples*, elem) := <deref-by-type(|"Error", [], varArray*, [])>(type, exp);
+			if <gt>(<length> elem, 0) then
+				resVarArray* := <set-indices> (<copy>(<length> elem, realIndex), <map(inc)> elem, varArray*)
+			else
+				resVarArray* := <set-index> (realIndex, <inc> elem, varArray*)
+			end
+	
+	loop-over-array(|varIndex, statements*, varArray*):
+		[newVarValue | array*] -> (resRules*, resVarArray*)
+		with
+			newVarArray* := <set-index>(<subt>(varIndex, 1), newVarValue, varArray*);
+			(thisRules*, newerVarArray*) := <skeleton-to-rules(|newVarArray*)> statements*;
+			(thatRules*, resVarArray*) := <loop-over-array(|varIndex, statements*, newerVarArray*)> array*;
+			resRules* := [thisRules*, thatRules*]
+			
+	loop-over-array(|varIndex, statements*, varArray*):
+		[] -> ([], varArray*)
+	
+	remove-var(|varArray*):
+		VarRef(name) -> Int(<index(|<get-var-index> name); int-to-string> varArray*)
+		
+	remove-var(|varArray*):
+   		CompAttr(modRef, attr) -> CompAttr(modRef, attr{})
+
+   	remove-var(|varArray*):
+   		ModRef(name, array*) -> ModRef(<get-mod-index> name, <map(inc)> intArray*)
+   		with
+   			(unused*, intArray*) :=  <array-to-list(|"Error", [], varArray*, [], Integer())> array*
+   			
+   	map-with-rules(|ast, rules*, outinSizes*):
+   		(systems1*, systems2*) -> resSystem
+   		with
+   			((usInSize, usOutSize, usSize), (dsInSize, dsOutSize, dsSize)) := outinSizes*;
+   			theseSystems1* := <take(|usSize)> systems1*;
+   			theseSystems2* := <take(|dsSize)> systems2*;
+   			//Find reference module
+   			(posRefComp, posRefIndex) := < get-reference-mod(|[usSize, dsSize], Position())> rules*;
+   			//convert rules of rotation and mirror to the same reference
+   			newMirrorRules* := <change-ref-if-needed(|[usSize, dsSize], Mirror(), posRefComp, posRefIndex)> rules*;
+   			newRotationRules* := <change-ref-if-needed(|[usSize, dsSize], Rotation(), posRefComp, posRefIndex)> rules*;
+   			positionRules* := <filter(rule-has-attribute(|Position()))> rules*;
+   			placementRulesHalf* := [newMirrorRules*, newRotationRules*];
+   			placementRules* := [positionRules*, placementRulesHalf*];
+   			if <eq>(posRefComp, 1) then
+   				placeRefSystem := <index(|posRefIndex)> theseSystems1*
+   			else
+   				placeRefSystem := <index(|posRefIndex)> theseSystems2*
+   			end;
+   			//set position of reference to (0,0)
+   			initSystem := <place-system(|ast, 0, 0, 0, 0)>  placeRefSystem;
+   			if <eq>(posRefComp, 1) then
+   				initSystemArray* := [<set-index> (<subt>(posRefIndex, 1), initSystem, theseSystems1*),  [theseSystems2*]]
+   			else
+   				initSystemArray* := [[theseSystems1*], <set-index> (<subt>(posRefIndex, 1), initSystem, theseSystems2*)]
+   			end;
+   			//place all other modules relative to reference (still in seperate systems)
+   			placedSystems* := <place-with-rules(|ast, initSystemArray*, posRefComp, posRefIndex, [usSize, dsSize])> (1, 1, placementRules*);
+   			
+   			portConnectionRules* := <map(get-connection-rule(|usOutSize, dsInSize, placedSystems*)); concat> rules*;
+   			usSystems* := <index(|1)> placedSystems*;
+			usSizes* := <map(system-get-module-num)> usSystems*;
+			additionalUsSizes* := <fold-and-add(|0)> usSizes*;
+			dsSystems* := <index(|2)> placedSystems*;
+			dsSizes* := <map(system-get-module-num)> dsSystems*;
+			tempAdditionalDsSizes* := <fold-and-add(|0)> dsSizes*;
+			totalUsSize := <foldr(!0, add)>usSizes*;
+			additionalDsSizes* := <zip(add)>(<copy>(<length>dsSystems*, totalUsSize), tempAdditionalDsSizes*);
+			
+			(connectedSystems*, newAdditionalDsSizes*) := <connect-with-rules(|ast, placedSystems*, usOutSize, dsInSize, additionalUsSizes*, additionalDsSizes*)> portConnectionRules*;
+   			addedMirs := <subt>(<index(|2); map(system-get-module-num); foldr(!0, add)> connectedSystems*, <foldr(!0, add)>dsSizes*);
+   			updatedModUsSystems* := <systems-add-sizes>(<index(|1)>connectedSystems*, additionalUsSizes*);
+			updatedModDsSystems* := <systems-add-sizes>(<index(|2)>connectedSystems*, newAdditionalDsSizes*);
+			(unconnectedUsPorts*, unconnectedDsPorts*) := <get-unconnected-ports(|updatedModUsSystems*, updatedModDsSystems*)> portConnectionRules*;
+   			
+   			connectedUsSystems* := <systems-add-port-sizes(|0, unconnectedUsPorts*, 1)>(updatedModUsSystems*, additionalUsSizes*);
+			connectedDsSystems* := <systems-add-port-sizes(|1, unconnectedDsPorts*, 1)>(updatedModDsSystems*,  newAdditionalDsSizes*);
+			updatedPortUsSystems* := <systems-add-inputs(|unconnectedDsPorts*, connectedDsSystems*); map(system-remove-outputs)> connectedUsSystems*;
+			updatedPortDsSystems* := <systems-add-outputs(|unconnectedUsPorts*, connectedUsSystems*); map(system-remove-inputs)> connectedDsSystems*;
+   			timingRules* := <map(get-timing-rule(|ast, connectedSystems*)); concat> rules*;
+			timedSystems* := <set-timing(|updatedPortDsSystems*)> timingRules*;
+			resSystem := <foldr(!Nop(), systems-merge(|ast)); system-set-in-sources>[updatedPortUsSystems*, timedSystems*]
+
+   	get-reference-mod(|sizes*, refAttr):
+   		rules* -> (compIndex, arrayIndex)
+   		with
+   			relevantRules* := <filter(rule-has-attribute(|refAttr))> rules*;
+   			emptyArray1 := <copy>(<index(|1)> sizes*, 0);
+   			emptyArray2 := <copy>(<index(|2)> sizes*, 0);
+   			emptyMatrix* := [emptyArray1, emptyArray2];
+   			assignedMods* := <mark-mod(|emptyMatrix*)> relevantRules*;
+   			multiplyAssignedNum1 := <index(|1); filter(is-gt-one); length> assignedMods*;
+   			multiplyAssignedNum2 := <index(|2); filter(is-gt-one); length> assignedMods*;
+   			if <gt>(<add>(multiplyAssignedNum1, multiplyAssignedNum2), 0) then
+   				<debug>"Multiple pieces of mapping information found for single attribute of single module."
+   			else
+   				refs1* := <index(|1); map-with-index(keep-if(?(_, 0))); concat> assignedMods*;
+   				refs2* := <index(|2); map-with-index(keep-if(?(_, 0))); concat> assignedMods*;
+   				if <gt>(<add>(<length> refs1*, <length> refs2*), 1) then
+   					<debug>"Not enough information was provided to do mapping. Please provide position,rotation and mirror information for all but one module."
+   				else
+   					if <eq>(<length>refs1*, 1) then
+   						compIndex := 1;
+   						arrayIndex := <index(|1); tuple-getx> refs1*
+   					else if <eq>(<length>refs2*, 1) then
+   							compIndex := 2;
+   							arrayIndex := <index(|1); tuple-getx> refs2*
+   						else
+   							<debug> "Found mapping information for all modules. Please leave one module unmapped."
+   						end
+   					end
+   				end
+   			end
+   			
+   	is-gt-one:
+   		num -> <gt>(num, 1)
+   			
+   	change-ref-if-needed(|sizes*, refAttr, refComp, refIndex):
+   		rules* -> resRules*
+   		with
+   			(thisComp, thisIndex) := <get-reference-mod(|sizes*, refAttr)> rules*;
+   			if <?(refComp, refIndex)> (thisComp, thisIndex) then
+   				resRules* := <filter(rule-has-attribute(|refAttr))> rules*
+   			else
+   				relevantRules* := <filter(rule-has-attribute(|refAttr))> rules*;
+   				resRules* := <rules-change-ref(|refComp, refIndex, thisComp, thisIndex)> relevantRules*
+   			end
+   			
+   	rule-has-attribute(|refAttr):
+   		(compIndex, array*, refAttr, exp) -> (compIndex, array*, refAttr, exp)
+   		
+   	mark-mod(|matrix*):
+   		[(compIndex, array*, attr, exp)| rules*] -> resMatrix*
+   		with
+   			thisArray* := <index(|compIndex)> matrix*;
+   			zeroes* := <copy>(<length> thisArray*, 0);
+   			addArray* := <set-indices> (<map(dec)> array*, <copy>(<length> array*, 1), zeroes*);
+   			newArray* := <zip(add)>(thisArray*, addArray*);
+   			newMatrix* := <set-index>(<subt>(compIndex, 1), newArray*, matrix*);
+   			resMatrix* := <mark-mod(|newMatrix*)> rules*
+
+	mark-mod(|matrix*):
+		[] -> matrix*
+		
+	rules-change-ref(|targetComp, targetIndex, startComp, startIndex):
+		rules* -> resRules*
+		with
+			(newComp, newIndex, newRules*) := <rules-change-ref(|targetComp, targetIndex)> rules*;
+			if <eq>(newComp, startComp) then
+			 	if <eq>(newIndex, startIndex) then
+			 		resRules* := newRules*
+			 	else
+			 		resRules* := <rules-change-ref(|targetComp, targetIndex, newComp, newIndex)> rules*
+			 	end
+			else
+			 	resRules* := <rules-change-ref(|targetComp, targetIndex, newComp, newIndex)> rules*
+			end
+   		
+   	rules-change-ref(|startComp, startIndex):
+   		[(compIndex, array*, attr, exp) | rules*] ->  (resComp, resIndex, resRules*)
+   		with
+   			if <contains(|startComp, startIndex)>(compIndex, array*) then
+   				startIndex* := [startIndex];
+   				diffArray* := <diff> (array*, startIndex*);
+   				(resComp, resIndex, newRules*) := <reverse-ref(|startComp, startIndex)>(compIndex, array*, attr, exp);
+   				if <gt>(<length> diffArray*, 0) then
+   					 newRule* := [(compIndex, diffArray*, attr, exp)];
+   					 tempRules* := [newRule*, newRules*];
+   					 resRules* := [tempRules*, rules*]
+   				else
+   					resRules* := [newRules*, rules*]
+   				end 
+   			else
+   				(resComp, resIndex, thoseRules*) := <rules-change-ref(|startComp, startIndex)> rules*;
+   				thisRule* := [(compIndex, array*, attr, exp)];
+   				resRules* := [thisRule*, thoseRules*]
+   			end
+   			
+   	rules-change-ref(|startComp, startIndex):
+   		[] -> <debug>"No rules could be reversed. "
+   			
+	contains(|comp, index):
+		(comp, array*) -> <gt>(<isect; length>(array*, index*), 0)
+		with
+			index* := [index]
+			
+	reverse-ref(|comp, index):
+		(compInit, array*, attr, exp) -> (resComp, resIndex, [(resComp, resIndex,  attr, resExp)])
+		with
+			 (resComp, resIndex, num, tempExp) := <exp-reverse(|attr, comp, index)> exp;
+			 if <eq>(num, 0) then
+			 	<debug> "Cannot reverse an expression not based on the same attribute of a different module. \nNot all mapping information was provided correctly."
+			 else
+			 	resExp := tempExp
+			 end
+			 
+	place-with-rules(|ast, systems*, refComp, refIndex, sizes*):
+		(compIndex, index, rules*) -> resSystems*
+		with
+			if <?(refComp, refIndex)>(compIndex, index) then
+				resSystems* := <place-with-rules(|ast, systems*, refComp, refIndex, sizes*)>(compIndex, <inc>index, rules*)
+			else if <gt>(index, <index(|compIndex)> sizes*) then
+					resSystems* := <place-with-rules(|ast, systems*, refComp, refIndex, sizes*)>(<inc>compIndex, 1, rules*)
+				else if <gt>(compIndex, 2) then
+						resSystems* := systems*
+					else 
+						(position, rotation, mirror) := <get-placement-info(|ast, systems*, compIndex, index)> rules*;
+						newSystem := <index(|compIndex); index(|index); place-system(|ast, <tuple-getx>position, <tuple-gety>position,  rotation, mirror)> systems*;
+						newSystemArray* := <set-index>(<subt>(index, 1), newSystem, <index(|compIndex)> systems*);
+						newSystems* := <set-index>(<subt>(compIndex, 1), newSystemArray*, systems*);
+						resSystems* := <place-with-rules(|ast, newSystems*, refComp, refIndex, sizes*)> (compIndex, <inc> index, rules*)
+					end
+				end
+			end
+		
+	get-placement-info(|ast, systemArray*, compIndex, index):
+		[(comp, array*, Position(), exp)| rules*] ->(resPosition, resRotation, resMirror)
+		with
+			if <contains(|compIndex, index)> (comp, array*) then
+				(noPosition, resRotation,resMirror) := <get-placement-info(|ast, systemArray*, compIndex, index)> rules*;
+				resPosition := <exp-to-coord(|ast, [], systemArray*)> exp
+			else
+				(resPosition, resRotation,resMirror) := <get-placement-info(|ast, systemArray*, compIndex, index)> rules*
+			end
+			
+	get-placement-info(|ast, systemArray*, compIndex, index):
+		[(comp, array*, Rotation(), exp)| rules*] -> (resPosition, resRotation, resMirror)
+		with
+			if <contains(|compIndex, index)> (comp, array*) then
+				(resPosition, noRotation, resMirror) := <get-placement-info(|ast, systemArray*, compIndex, index)> rules*;
+				resRotation := <exp-to-int(|ast, [], systemArray*)> exp
+			else
+				(resPosition, resRotation, resMirror) := <get-placement-info(|ast, systemArray*, compIndex, index)> rules*
+			end	
+			
+	get-placement-info(|ast, systemArray*, compIndex, index):
+		[(comp, array*, Mirror(), exp)| rules*] -> (resPosition, resRotation, resMirror)
+		with
+			if <contains(|compIndex, index)> (comp, array*) then
+				(resPosition, resRotation, noMirror) := <get-placement-info(|ast, systemArray*, compIndex, index)> rules*;
+				resMirror := <exp-to-int(|ast, [], systemArray*)> exp
+			else
+				(resPosition, resRotation, resMirror) := <get-placement-info(|ast, systemArray*, compIndex, index)> rules*
+				
+			end
+			
+	get-placement-info(|ast, systemArray*, compIndex, index):
+		[(comp, array*, otherAttr, exp)| rules*] -> <get-placement-info(|ast, systemArray*, compIndex, index)> rules*
+		
+	get-placement-info(|ast, systemArray*, compIndex, index):
+		[] -> ("No position found", "No rotation found", "No mirror found")
+		
+	get-connection-rule(|usOutSize, dsInSize, systems*):
+		(1, outArray*, outAttr, CompAttr(ModRef(2, inArray*), inAttr)) -> resRules*
+		with
+			outTuples* := <get-out-tuples(|usOutSize, systems*)>(outArray*, outAttr);
+			inTuples* := <get-in-tuples(|dsInSize, systems*)>(inArray*, inAttr);
+			resRules* := <zip(tuples-to-rule)>(outTuples*, inTuples*)
+			
+	get-connection-rule(|usOutSize, dsInSize, systems*):
+		(2, inArray*, inAttr, CompAttr(ModRef(1, outArray*), outAttr)) -> resRules*
+		with
+			outTuples* := <get-out-tuples(|usOutSize, systems*)>(outArray*, outAttr);
+			inTuples* := <get-in-tuples(|dsInSize, systems*)>(inArray*, inAttr);
+			resRules* := <zip(tuples-to-rule)>(outTuples*, inTuples*)
+			
+	get-connection-rule(|usOutSize, dsInSize, systems*):
+		otherRule -> []
+			
+	get-out-tuples(|usOutSize, systems*):
+		(array*, Outport(outs*)) -> tuples*
+		with
+			if <gt>(<length> array*, 1) then
+				tuples* := <debug; fail>"Cannot connect outputs of multiple blocks at the same time."
+			else
+				(unused, outIndices*) := <array-to-list(|"Error", [], [], [], Integer())> outs*;
+				length := <length> outIndices*;
+				incrArray* := <copy; map-with-index(tuple-getx)> (<subt>(<index(|1)> array*, 1), 0);
+				outAddition :=  <map(at-index(|<index(|1)>systems*); system-get-output-num); foldr(!0, add)>incrArray*;
+				outAdditions* := <copy>(length, outAddition);
+				tuples* := <zip>(<copy>(length, <index(|1)> array*), <zip(add)>(<map(inc)>outIndices*, outAdditions*))
+			end
+	
+	get-out-tuples(|usOutSize, systems*):
+		(array*, GlobalOutport(outs*)) -> tuples*
+		with
+			(unused1, outIndices*) := <array-to-list(|"Error", [], [], [], Integer())> outs*;
+			sysTuples* := <map(inc; get-port-num(system-get-output-num|1, <index(|1)> systems*))> outIndices*;
+			tuples* := <zip>(<map(tuple-getx)> sysTuples*, <map(inc)> outIndices*)
+			
+	get-out-tuples(|usOutSize, systems*):
+		(array*, Outports()) -> tuples*
+		with
+			tuples* := <map(get-outs-tuples(|usOutSize, systems*)); concat> array*
+			
+	get-out-tuples(|usOutSize, systems*):
+		(array*, GlobalOutports()) -> tuples*
+		with
+			size := <index(|1); length> systems*;
+			completeArray* := <copy; map-with-index(tuple-getx)>(size, 0);
+			tuples* := <map(get-outs-tuples(|usOutSize, systems*)); concat> completeArray*
+			
+	get-out-tuples(|usOutSize, systems*):
+		(array*, otherAttr) -> []
+			
+	get-outs-tuples(|usOutSize, systems*):
+		index -> tuples*
+		with
+			size := <index(|1); index(|index); system-get-output-num> systems*;
+			tuples* := <get-out-tuples(|usOutSize, systems*)>([index], Outport(<copy; map-with-index(tuple-getx; dec)>(size, 0)))
+			
+	get-in-tuples(|dsInSize, systems*):
+		(array*, Inport(ins*)) -> tuples*
+		with
+			if <gt>(<length> array*, 1) then
+				tuples* := <debug; fail>"Cannot connect inputs of multiple blocks at the same time."
+			else
+				(unused, inIndices*) := <array-to-list(|"Error", [], [], [], Integer())> ins*;
+				length := <length> inIndices*;
+				incrArray* := <copy; map-with-index(tuple-getx)> (<subt>(<index(|1)> array*, 1), 0);
+				inAddition :=  <map(at-index(|<index(|2)>systems*); system-get-input-num); foldr(!0, add)>incrArray*;
+				inAdditions* := <copy>(length, inAddition);
+				tuples* := <zip>(<copy>(length, <index(|1)> array*), <zip(add)>(<map(inc)> inIndices*, inAdditions*))
+			end
+	
+	get-in-tuples(|dsInSize, systems*):
+		(array*, GlobalInport(ins*)) -> tuples*
+		with
+			(unused1, inIndices*) := <array-to-list(|"Error", [], [], [], Integer())> ins*;
+			sysTuples* := <map(inc; get-port-num(system-get-input-num|1, <index(|2)> systems*))> inIndices*;
+			tuples* := <zip>(<map(tuple-getx)> sysTuples*, <map(inc)> inIndices*)
+			
+	get-in-tuples(|dsInSize, systems*):
+		(array*, Inports()) -> tuples*
+		with
+			tuples* := <map(get-ins-tuples(|dsInSize, systems*)); concat> array*
+			
+	get-in-tuples(|dsInSize, systems*):
+		(array*, GlobalInports()) -> tuples*
+		with
+			size := <index(|2); length> systems*;
+			completeArray* := <copy; map-with-index(tuple-getx)>(size, 0);
+			tuples* := <map(get-ins-tuples(|dsInSize, systems*)); concat> completeArray*
+			
+	get-in-tuples(|dsInSize, systems*):
+		(array*, otherAttr) -> []
+			
+	get-ins-tuples(|dsInSize, systems*):
+		index -> tuples*
+		with
+			size := <index(|2); index(|index); system-get-input-num> systems*;
+			tuples* := <get-in-tuples(|dsInSize, systems*)>([index], Inport(<copy; map-with-index(tuple-getx; dec)>(size, 0)))
+			
+	tuples-to-rule:
+		((x1, y1), (x2, y2)) -> (x1, y1, x2, y2)
+		
+	tuples-to-rule:
+		([], []) -> []
+			
+	systems-add-sizes: //(|connectionRules*, sysNum, portsSoFar, isUpStream)
+		([System(modules*, i, o, s, l, e) | systems*], [addSize | addSizes*]) -> resSystems*
+		with
+			//if <eq>(isUpStream, 0) then
+			//	connectedPorts := <map-with-index(get-connected-in-ports(|sysNum, portsSoFar, connectionRules*))>inputs*;
+			thisSystem* := [System(<map(increase-module-num-by(!1|addSize, 0))> modules*, i, o, s, l, e)];
+			thoseSystems* := <systems-add-sizes>(systems*, addSizes*);
+			resSystems* := [thisSystem*, thoseSystems*] 
+			
+	systems-add-sizes:
+		([], []) -> []
+		
+	/*get-connected-in-port(|sysNum, portsSoFar, connectionRules*):
+		(portNum, )*/
+		
+	get-unconnected-ports(|usSystems*, dsSystems*):
+		rules* -> (unconnectedUsPorts*, unconnectedDsPorts*)
+		with
+			usMarkArray* := <map(create-out-mark-array)> usSystems*;
+			dsMarkArray* := <map(create-in-mark-array)> dsSystems*;
+			(usMarkedArray*, dsMarkedArray*) := <mark-with-connection-rules(|usMarkArray*, dsMarkArray*, [[usSystems*], [dsSystems*]])>rules*;
+			unconnectedUsPorts* := <map-with-index(tuple-map-y-with-index(get-marked); concat);concat> usMarkedArray*;
+			unconnectedDsPorts* := <map-with-index(tuple-map-y-with-index(get-marked); concat);concat> dsMarkedArray*
+	
+	get-marked:
+		(y, (x, 1)) -> []
+		
+	get-marked:
+		(y, (x, 0)) -> [(x, y)]
+	
+	mark-with-connection-rules(|usMarkArray*, dsMarkArray*, systems*):
+		[(outNum, outIndex, inNum, inIndex), rules*] -> (resUsMarkArray*, resDsMarkArray*)
+		with
+			outIncrArray* := <copy; map-with-index(tuple-getx)> (<subt>(outNum, 1), 0);
+			outAddition :=  <map(at-index(|<index(|1)>systems*); system-get-output-num); foldr(!0, add)>outIncrArray*;		
+			inIncrArray* := <copy; map-with-index(tuple-getx)> (<subt>(inNum, 1), 0);
+			inAddition :=  <map(at-index(|<index(|2)>systems*); system-get-input-num); foldr(!0, add)>inIncrArray*;		
+			thisUsArray* := <index(|outNum)> usMarkArray*;
+			newUsArray* := <set-index>(<subt; dec>(outIndex, outAddition),  1, thisUsArray*);
+			newUsMarkArray* := <set-index>(<dec>outNum, newUsArray*, usMarkArray*);
+			thisDsArray* := <index(|inNum)> dsMarkArray*;
+			newDsArray* := <set-index>(<subt; dec> (inIndex, inAddition), 1, thisDsArray*);
+			newDsMarkArray* := <set-index>(<dec>inNum, newDsArray*, dsMarkArray*);
+			(resUsMarkArray*, resDsMarkArray*) := <mark-with-connection-rules(|newUsMarkArray*, newDsMarkArray*, systems*)> rules*
+			
+	mark-with-connection-rules(|usMarkArray*, dsMarkArray*, systems*):
+		[] -> (usMarkArray*, dsMarkArray*)
+			
+	create-in-mark-array:
+		System(mods*, i*, o*, s, l, e) -> <copy>(<length>i*, 0)
+		
+	create-out-mark-array:
+		System(mods*, i*, o*, s, l, e) -> <copy>(<length>o*, 0)
+		
+	tuple-map-y-with-index(rule):
+		(index, array*) -> res*
+		with
+			indexArray* := <copy>(<length> array*, index);
+			res* := <zip; map-with-index(rule)>(indexArray*, array*)
+		
+	systems-add-port-sizes(|isDs, unconnectedPorts*, systemIndex):
+		([System(modules*, i*, o*, s, l, e) | systems*], [addSize | addSizes*]) -> resSystems*
+		with
+			theseUnconnectedPorts* := <filter(?(systemIndex, _); tuple-gety)> unconnectedPorts*;
+			if <eq> (isDs, 1) then
+				theseInputs* := <map(at-index(|i*))> theseUnconnectedPorts*;
+				newInputs* := <map(input-addx-to-all(|addSize, 0))> theseInputs*;
+				newI* := <set-indices>(<map(dec)> theseUnconnectedPorts*, newInputs*, i*);
+				thisSystem* := [System(modules*, newI*, <map(intpair-addX-cond(gt|addSize, 0))>o*, s, l, e)];
+				thoseSystems* := <systems-add-port-sizes(|isDs, unconnectedPorts*, <inc> systemIndex)>(systems*, addSizes*);
+				resSystems* := [thisSystem*, thoseSystems*] 
+			else
+				theseOutputs* := <map(at-index(|o*))> theseUnconnectedPorts*;
+				newOutputs* := <map(intpair-addX-cond(gt|addSize, 0))> theseOutputs*;
+				newO* := <set-indices>(<map(dec)> theseUnconnectedPorts*, newOutputs*, o*);
+				thisSystem* := [System(modules*, <map(input-addx-to-all(|addSize, 0))>i*, newO*, s, l, e)];
+				thoseSystems* := <systems-add-port-sizes(|isDs, unconnectedPorts*, <inc> systemIndex)>(systems*, addSizes*);
+				resSystems* := [thisSystem*, thoseSystems*] 
+			end
+			
+	systems-add-port-sizes(|isDs, unconnectedPorts*, systemIndex):
+		([], []) -> []
+		
+	systems-add-inputs(|unconnectedPorts*, dsSystems*):
+		usSystems* -> resSystems*
+		with
+			newInputs* := <map(systems-get-port(system-get-inputs| dsSystems*))>unconnectedPorts*;
+			thisSystem := <last> usSystems*;
+			newSystem := <system-add-inputs(|newInputs*)> thisSystem;
+			resSystems*:= <set-index>(<subt>(<length>usSystems*, 1), newSystem, usSystems*)
+			
+	systems-add-outputs(|unconnectedPorts*, usSystems*):
+		dsSystems* -> resSystems*
+		with
+			newOutputs* := <map(systems-get-port(system-get-outputs| usSystems*))>unconnectedPorts*;
+			thisSystem := <last> dsSystems*;
+			newSystem := <system-add-outputs(|newOutputs*)> thisSystem;
+			resSystems*:= <set-index>(<subt>(<length> dsSystems*, 1), newSystem, dsSystems*)
+			
+	systems-get-port(port-rule | systems*):
+		(systemNum, portNum) -> res
+		with
+			thisSystem := <index(|systemNum)> systems*;
+			ports* := <port-rule> thisSystem;
+			res := <index(|portNum)> ports*
+			
+	connect-with-rules(|ast,systems*, usOutSize, dsInSize, additionalUsSizes*, additionalDsSizes*):
+		[(outNum, outIndex, inNum, inIndex) | rules*] -> (resSystems*, resAddDsSizes*)
+		with
+			thisSystem := <index(|2); index(|inNum)> systems*;
+			connectSystem := <index(|1); index(|outNum)> systems*;
+			thisOutput := <index(|1); map(system-get-outputs); concat; index(|outIndex)> systems*;
+			thisInputs* := <index(|2); map(system-get-inputs); concat; index(|inIndex); input-get-inputs> systems*;
+			outputBlock := <intpair-to-tuple; tuple-to-port-block(libmod-get-output|ast, <system-get-modules> connectSystem)> thisOutput;
+			inputBlocks* :=  <map(intpair-to-tuple; tuple-to-port-block(libmod-get-input|ast, <system-get-modules> thisSystem))> thisInputs*;
+			inIncrArray* := <copy; map-with-index(tuple-getx)> (<subt>(inNum, 1), 0);
+			inAddition :=  <map(at-index(|<index(|2)>systems*); system-get-input-num); foldr(!0, add)>inIncrArray*;		
+			(newMods*, newInputs*, newOutputs*) := <add-mirrors(|<system-get-modules> thisSystem, 0, <subt>(inIndex, inAddition), <system-get-inputs>thisSystem,  <system-get-outputs>thisSystem, 0, 0, IntPair("0", "1"))>(outputBlock, inputBlocks*);
+			thisNewSystem := System(newMods*, newInputs*, newOutputs*, <intpair-sub>(<modules-get-top-right(|ast)> newMods*, <modules-get-bottom-left(|ast)> newMods*), <system-get-latency> thisSystem, <system-get-energy> thisSystem);
+			newDsSystems* := <set-index>(<subt>(inNum, 1), thisNewSystem, <index(|2)> systems*);
+			addedMirs := <subt>(<length> newMods*, <system-get-module-num> thisSystem);
+			zeroes* := <copy>(inNum, 0);
+			sizes* := <copy>(<subt>(<index(|2); length> systems*, inNum), addedMirs);
+			addedSizes* := [zeroes*, sizes*];
+			newAddDsSizes* := <zip(add)>(additionalDsSizes*, addedSizes*);
+			newSystems* := <set-index>(1, newDsSystems*, systems*);
+			(newerSystems*, resAddDsSizes*) := <connect-with-rules(|ast, newSystems*, usOutSize, dsInSize, additionalUsSizes*, newAddDsSizes* )> rules*;
+			resSystems* := <set-systems-connection(|ast, newerSystems*, outIndex, inIndex, additionalUsSizes*, resAddDsSizes*)> newerSystems*
+			
+	connect-with-rules(|ast, systems*, usOutSize, dsInSize, additionalUsSizes*, additionalDsSizes*):
+		[] -> (systems*, additionalDsSizes*)
+		
+	get-timing-rule(|ast, systemArray*):
+		(2, array*, Time(), exp) -> [(array*, value)]
+		with
+			value := <exp-to-int(|ast, [], systemArray*)> exp
+			
+	get-timing-rule(|ast, systemArray*):
+		(1, array*, Time(), exp) -> [(array*, value)]
+		with
+			(compNum, indexNum, num, newExp) := <exp-reverse(|Delay(), 1, <index(|1)> array*)> exp;
+			value := <exp-to-int(|ast, [], systemArray*)> newExp
+			
+	get-timing-rule(|ast, systemArray*):
+		(num, array*, attr, exp) -> []
+		
+	set-timing(|systems*):
+		[(array*, value) | tuples*] -> resSystems*
+		with
+			theseSystems* := <map(at-index(|systems*))> array*;
+			thoseSystems* := <map(system-set-start-time(|<int-to-string> value))> theseSystems*;
+			newSystems* := <set-indices>(<map(dec)> array*, thoseSystems*, systems*);
+			resSystems* := <set-timing(|newSystems*)> tuples*
+			
+	 set-timing(|systems*):
+		[] -> systems*
+			
+   	/*
+   		Generate a system from a list of statements in the following steps:
+   		generate a system for every statement.
+   		sort the systems from closest to the input port to closest to the output port
+   		connect the systems with each other in that order
+   		remove all nops by redirecting connections and updating in and output ports.
+   	*/
+   	
+   	main-to-dfg(|ast, systemTuples*, skeletons*):
+   		statements -> res
+   		with
+   			(inputSize, outputSize, signalSizes) := <get-main-sizes> ast;
+   			systemArray := <copy>(<add>(<length> signalSizes, 1), System([], [], [], IntPair("0", "0"), "0", "0")); 
+   			dfgres := <statements-to-dfg(|ast, systemArray, systemTuples*, inputSize, 1, skeletons*); shift-left(|1)> statements;
+   			newdfgres := <filter(is-not-empty); add-nops(|ast)> dfgres;
+   			res := <connect-without-sorting(|ast)> newdfgres
+   	
+   	statements-to-dfg(|ast, systemArray*, systemTuples*, inputSize, sigNum, skeletons*):
+   		[statement | statements*] -> res*
+   		with
+   			newSystemArray := <statement-to-dfg(|ast, systemArray*, systemTuples*, inputSize, sigNum, skeletons*)> statement;
+   			res* := <statements-to-dfg(|ast, newSystemArray, systemTuples*, inputSize, <inc> sigNum, skeletons*)> statements*
+   			
+   	statements-to-dfg(|ast, systemArray*, systemTuples*, inputSize, sigNum, skeletons*):
+   		[] -> systemArray*
+   		
+   	/*
+   		The ast-to-dfg of signal assignment statements uses the denote-input strategy to
+   		denote the signal that is the input of the connecting skeleton into the system that
+   		has been generated from the connecting skeleton
+   	*/
+   	
+	statement-to-dfg(|ast, systemArray*, systemTuples*, inputSize, sigNum, skeletons*):
+		OutputAssign(array, signal, Some(ConSkel(conOp, skel))) -> res*
+		with
+			
+			skelsys* := <ast-to-dfg(|ast, systemTuples*, skeletons*)> skel;
+			skelsys := <system-map-together(|ast, 0)>skelsys*;
+			thisSys := <shuffle-with-signal(|inputSize)>(signal, skelsys);
+			res* := <set-index>(0, <shuffle-with-array(|array)>thisSys, systemArray*)
+			
+	statement-to-dfg(|ast, systemArray*, systemTuples*, inputSize, sigNum, skeletons*):
+		OutputAssign(array, signal, None()) -> res*
+		with
+			skelsys* := <length; empty-system> array;
+			skelsys := <system-map-together(|ast, 0)>skelsys*;
+			thisSys := <shuffle-with-signal(|inputSize)>(signal, skelsys);
+			res* := <set-index>(0, <shuffle-with-array(|array)>thisSys, systemArray*)
+			
+	statement-to-dfg(|ast, systemArray*, systemTuples*, inputSize, sigNum, skeletons*):
+		SignalAssign(num, array, signal, Some(ConSkel(conOp, skel))) -> res*
+		with
+			skelsys* := <ast-to-dfg(|ast, systemTuples*, skeletons*)> skel;
+			skelsys := <system-map-together(|ast, 0)>skelsys*;
+			thisSys := <shuffle-with-signal(|inputSize)>(signal, skelsys);
+			res* := <set-index>(num, <shuffle-with-array(|array)>thisSys, systemArray*)
+			
+	statement-to-dfg(|ast, systemArray*, systemTuples*, inputSize, sigNum, skeletons*):
+		SignalAssign(num, array, signal, None()) -> res*
+		with
+			skelsys* := <length; empty-system> array;
+			skelsys := <system-map-together(|ast, 0)>skelsys*;
+			thisSys := <shuffle-with-signal(|inputSize)>(signal, skelsys);
+			res* := <set-index>(num, <shuffle-with-array(|array)>thisSys, systemArray*) 
+   	
+	/*
+		Denote a signal into the system that was generated from skeleton.
+		This is done by first getting all indices of input signals from the signal,
+		and using those to shuffle the current input ports.
+		Then, it finds connections: the parts of the signal that reference other signals,
+		and adds sources to the modules that are connected to those other signals
+	*/
+	
+	shuffle-with-signal(|inputSize):
+		(signal, System(mods*, inputs*, outputs*, size, time, energy)) ->  System(resMods*, resInputs*, resOutputs*, size, time, energy)
+		with
+			emptyInputs := <copy>(inputSize, Input([]));
+			(signalLength, resMods*, resInputs*, resOutputs*) := <shuffle-mods-and-inputs(|inputs*)> (1, signal, mods*, emptyInputs, outputs*)
+	
+	shuffle-mods-and-inputs(|origInputs*):
+		(index, InputSig(array), mods*, inputs*, outputs*) -> (newIndex, mods*, resInputs*, resOutputs*)
+		with
+			(newIndex, resInputs*, newOutputs*) := <shuffle-inputs-with-array(|origInputs*)> (index, array, inputs*, outputs*);
+			resOutputs* := <map(deselect)> newOutputs*
+	
+	shuffle-mods-and-inputs(|origInputs*):
+		(index, SigRef(num, array), mods*, inputs*, outputs*) -> (newIndex, resMods*, inputs*, resOutputs*)
+		with
+			(newIndex, resMods*, resOutputs*) := <set-mod-sources(|<map(input-get-inputs)>origInputs*, <subt>(0, num))>(index, array, mods*, outputs*)
+	
+	shuffle-mods-and-inputs(|origInputs*):
+		(index, ConcurSig(signal1, signal2), mods*, inputs*, outputs*) -> (resIndex, resMods*, resInputs*, resOutputs*)
+		with
+			(newIndex, newMods*, newInputs*, newOutputs*) := <shuffle-mods-and-inputs(|origInputs*)> (index, signal1, mods*, inputs*, outputs*);
+			(resIndex, resMods*, resInputs*, resOutputs*) := <shuffle-mods-and-inputs(|origInputs*)> (newIndex, signal2, newMods*, newInputs*, newOutputs*)
+	
+	shuffle-inputs-with-array(|origInputs*):
+		(oldIndex, [newIndex, array*], inputs*, outputs*) -> (resIndex, resInputs*, resOutputs*)
+		with
+			additionalInput := <index(|oldIndex)> origInputs*;
+			currentInput := <index(|newIndex)> inputs*;
+			newInput := <input-merge>(currentInput, additionalInput);
+			newInputs* := <set-index>(<subt>(newIndex, 1), newInput, inputs*);
+			newOutputs* := <map(select(|<int-to-string> oldIndex, <int-to-string> newIndex))> outputs*;
+			(resIndex, resInputs*, resOutputs*) := <shuffle-inputs-with-array(|origInputs*)>(<add>(oldIndex, 1), array*, newInputs*, newOutputs*)
+			
+	shuffle-inputs-with-array(|origInputs*):
+		(oldIndex, [], inputs*, outputs*) -> (oldIndex, inputs*, outputs*)
+		
+	set-mod-sources(|inputs, modNum):
+		(oldIndex, [newIndex, array*], mods*, outputs*) -> (resIndex, resMods*, resOutputs*)
+		with
+			intpairs* := <index(|oldIndex)> inputs;
+			(newMods*, newOutputs*) := <set-mod-source(|modNum, newIndex)>(mods*, outputs*, intpairs*);
+			(resIndex, resMods*, resOutputs*) := <set-mod-sources(|inputs, modNum)>(<add>(oldIndex, 1), array*, newMods*, newOutputs*)
+		
+	set-mod-sources(|inputs, modNum):
+		(oldIndex, [], mods*, outputs*) -> (oldIndex, mods*, outputs*)
+	
+	set-mod-source(|modNum, newIndex):
+		(mods*, outputs*, [intpair | intpairs*]) -> (resMods*, resOutputs*)
+		with
+		modIndex := <intpair-getx; string-to-int> intpair;
+		portIndex := <intpair-gety; string-to-int> intpair;
+		if <eq>(modIndex, 0) then
+			newOutput := IntPair(<int-to-string> modNum, <int-to-string> newIndex);
+			newOutputs* := <set-index>(<subt>(portIndex, 1), newOutput, outputs*);
+			newMods* := mods*
+		else
+			currentMod := <index(|modIndex)> mods*;
+			newMod := <module-set-source(|portIndex, IntPair(<int-to-string> modNum, <int-to-string> newIndex))> currentMod;
+			newMods* := <set-index> (<subt> (modIndex, 1), newMod, mods*);
+			newOutputs* := outputs*
+		end;
+		(resMods*, resOutputs*) := <set-mod-source(|modNum, newIndex)>(newMods*, newOutputs*, intpairs*)
+	
+	set-mod-source(|modNum, newIndex):
+		(mods*, outputs*, []) -> (mods*, outputs*)
+		
+	select(|old, new):
+		Input(array) -> Input(<map(select(|old, new))> array)
+		
+	select(|old, new):
+		IntPair("0", old) -> IntPair("-1", new)
+		
+	select(|old, new):
+		IntPair(x, y) -> IntPair(x, y)
+		
+	deselect:
+		Input(array) -> Input(<map(deselect)> array)
+		
+	deselect:
+		IntPair("-1", y) -> IntPair("0", y)
+		
+	deselect:
+		IntPair(x, y) -> IntPair(x, y)
+		
+	shuffle-with-array(|array*):
+		 System(mods*, inputs*, outputs*, size, time, energy) ->  System(mods*, <map(deselect)> resInputs*, resOutputs*, size, time, energy)
+		 with
+		 	(resInputs*, resOutputs*) := <shuffle-outputs-with-array(|outputs*)>(1, array*, inputs*, outputs*)
+		 	
+	shuffle-outputs-with-array(|origOutputs*):
+		(index, [element|array*], inputs*, outputs*) -> (resInputs*, resOutputs*)  
+		with
+			if <gt>(index, <length> origOutputs*) then
+				<debug>"ERROR: cannot assign skeleton to output signal of larger size than that skeleton."
+			else	
+				thisOutput := <index(|index)> origOutputs*;
+				if <eq>(<intpair-getx; string-to-int> thisOutput, 0) then
+					inIndex := <intpair-gety; string-to-int> thisOutput;
+					thisInput := <index(|inIndex)> inputs*;
+					newInput := <select(|<int-to-string> index,  <int-to-string> element)> thisInput;
+					newInputs* := <set-index>(<subt>(inIndex, 1), newInput, inputs*)
+				else
+					newInputs* := inputs*
+				end;
+				newOutputs* := <set-index>(<subt>(element, 1), thisOutput, outputs*);
+				(resInputs*, resOutputs*) := <shuffle-outputs-with-array(|origOutputs*)>(<add>(index, 1), array*, newInputs*, newOutputs*)
+			end
+			
+	shuffle-outputs-with-array(|origOutputs*):
+		(index, [], inputs*, outputs*) -> (inputs*, outputs*)
+		
+	/*
+		Add NOPs that reserve space on the crossbar for connections that go between 
+		different columns in the pipeline
+	*/
+	
+	add-nops(|ast):
+		systems* -> resSystems*
+		with
+			(inputNops*, connectionNops*) := <map-with-index(find-nop-locations(|ast, systems*)); unzip; merge-all> systems*;
+			newSystems* := <add-input-nops(|ast, systems*, 1)> inputNops*;
+			newerSystems* := <add-connect-nops(|ast, newSystems*, 1)> connectionNops*;
+			resSystems* := <remove-inputs> newerSystems*
+			
+	find-nop-locations(|ast, systems*):
+		(index, System(mods*, inputs*, outputs*, size, delay, energy)) -> res*
+		with
+			inputRes* := <map(input-get-inputs; copy-n-times(|<subt>(index, 1)); concat; nub)> inputs*;
+			newInputRes* := <map(if-not-empty-add(|index))> inputRes*;
+			connectRes* := <find-connect-nop-locs(|ast, systems*, index, 1)> mods*;
+			res* := (newInputRes*, connectRes*)
+	
+	if-not-empty-add(|index):
+		[] -> []
+		
+	if-not-empty-add(|index):
+		[elem*] -> res*
+		with
+			res* := <zip>(<copy>(<length> elem*, index), elem*)
+	
+	find-connect-nop-locs(|ast, systems*, systemIndex, modIndex):
+		[Module(modNum, size, block, sources*) | modules*] -> res*
+		with
+			nopSources* := <map-with-index(find-nop-source(|ast, systems*, systemIndex, modIndex)); concat> sources*;
+			if <gt> (<length> sources*, 0) then
+				thisRes* := <put-in-array(|systemIndex)> nopSources*;
+				newModIndex := <add>(modIndex, 1);
+				thatRes* := <find-connect-nop-locs(|ast, systems*, systemIndex, newModIndex)> modules*;
+				res* := <uneven-zip(uneven-merge)>(thisRes*, thatRes*)
+			else
+				res* := [[]]
+			end
+			
+	find-connect-nop-locs(|ast, systems*, index, modIndex):
+		[] -> res*
+		with
+			res* := [[]]
+	
+	find-nop-source(|ast, systems*, systemIndex, modIndex):
+		(portIndex, IntPair(x, y)) -> res*
+		with
+			if <lt>(<string-to-int>x, 0) then
+				modNum := <subt>(0, <string-to-int>x);
+				portNum :=  <string-to-int> y;
+				res* := [(modNum, portNum, (systemIndex, IntPair(<int-to-string> modIndex, <int-to-string> portIndex)))]
+			else
+				res* := []
+			end
+			
+	system-get-port-num-upto(|ast, modIndex):
+		System(mods*, i, o, s, d, e) -> res
+		with
+			if <lt> (modIndex, 2) then
+				res := 0
+			else
+				thisPortNum := <index(|modIndex);module-get-libmod(|ast); libmod-get-output-num> mods*;
+				thatPortNum := <system-get-port-num-upto(|ast, <subt>(modIndex, 1))>System(mods*, i, o, s, d, e);
+				res := <add>(thisPortNum, thatPortNum)
+			end
+			
+	put-in-array(|currentSystem):
+		[(x, y, tuple), tuples*] -> res*
+		with
+			diff := <subt> (x, currentSystem);
+			if <gt>(diff, 0) then
+				<debug>"Loops are not (yet) allowed!\n"
+			else 
+				if <lt>(diff, -1) then
+					headRes* := <copy>(<dec> x, []);
+					tailHead* := <copy>(<dec> y, []);
+					tailRes := [tailHead*, [tuple]];
+					thisRes* := [headRes*, tailRes]
+				else
+					thisRes* := [[]]
+				end
+			end;
+			
+			thatRes* := <put-in-array(|currentSystem)> tuples*;
+			res* := <uneven-zip(uneven-merge)>(thisRes*, thatRes*)
+	
+	put-in-array(|currentSystem):
+		[] -> res*
+		with
+			res* := []
+	
+	copy-n-times(|n):
+		elem -> <copy>(n, elem)
+	
+	merge-all:
+		(inArrays*, modArrays*) -> (resInArray*, resModArray*)
+		with
+			resInArray* := <foldr(![[]], uneven-zip(merge))> inArrays*;
+			resModArray* := <foldr(![[]], uneven-zip(uneven-merge))> modArrays*
+			
+	add-input-nops(|ast, systems*, inputNo):
+		[[] | tupleArrays*] -> resSystems*
+		with
+			resSystems* := <add-input-nops(|ast, systems*, <inc> inputNo)> tupleArrays*
+	
+	add-input-nops(|ast, systems*, inputNo):
+		[tuples* | tupleArrays*] -> resSystems*
+		with
+			sortedTuples* := <qsort(lt-X)> tuples*;
+			(connectPort, newSystems*) := <add-nop(|ast, systems*, 0, inputNo)> sortedTuples*;
+			thisResSystems* := <set-input(|inputNo, connectPort)> newSystems*;
+			resSystems* := <add-input-nops(|ast, thisResSystems*, <inc> inputNo)> tupleArrays*
+			
+	add-input-nops(|ast, systems*, inputNo):
+		[] -> systems*
+		
+	add-connect-nops(|ast, systems*, systemNo):
+		[[] |tuplesArrays*] -> resSystems*
+		with
+			resSystems* := <add-connect-nops(|ast, systems*, <inc> systemNo)> tuplesArrays*
+		
+	add-connect-nops(|ast, systems*, systemNo):
+		[tupleArray* | tupleArrays*] -> resSystems*
+		with
+			newSystems* := <add-connect-nop(|ast, systems*, systemNo, 1)> tupleArray*;
+			resSystems* := <add-connect-nops(|ast, newSystems*, <inc> systemNo)> tupleArrays*
+		
+	add-connect-nops(|ast, systems*, systemNo):
+		[] -> systems*
+		
+	add-connect-nop(|ast, systems*, systemNo, portNo):
+		[[] | tupleArrays*] -> resSystems*
+		with
+			resSystems* := <add-connect-nop(|ast, systems*, systemNo, <inc> portNo)> tupleArrays*
+	
+	add-connect-nop(|ast, systems*, systemNo, portNo):
+		[tuples* | tupleArrays*] -> resSystems*
+		with
+			sortedTuples* := <qsort(lt-X)> tuples*;
+			(connectPort, newSystems*) := <add-nop(|ast, systems*, systemNo, portNo)> sortedTuples*;
+			resSystems* := <add-connect-nop(|ast, newSystems*, systemNo, <inc> portNo)> tupleArrays*
+			
+	add-connect-nop(|ast, systems*, systemNo, portNo):
+		[] -> systems*
+		
+	add-connect-nops(|ast, systems*):
+		[] -> systems*
+		
+	add-nop(|ast, systems*, sysNum, portNo):
+		 tuples* -> (connectPort, resSystems*)
+		with
+			lastIndex := <last; tuple-getx> tuples*;
+			diff := <subt>(lastIndex, <inc>sysNum);
+			incs* := <copy; map-with-index(tuple-getx)>(diff, 0);
+			indices* := <map(add(|sysNum))> incs*;
+			invIndices* := <map(inv)> indices*;
+			curSys* := <map(at-index(|systems*))> indices*;
+			modSizes* := <map(system-get-module-num)> curSys*;
+			outSizes* := <map(system-get-output-num)> curSys*;
+			sources* := <zip(tuple-to-intpair)>(invIndices*, <map(inc)> outSizes*);
+			outports* := <zip(tuple-to-intpair)>(<map(inc)> modSizes*, <copy>(diff, 1));
+			firstSource := IntPair(<inv; int-to-string> sysNum, <int-to-string> portNo);
+			sourcesTail* := <take(|<dec>diff)> sources*;
+			newSources* := [firstSource, sourcesTail*];
+			emptySources* := <copy>(sysNum, []);
+			extendedSources* := [emptySources*, newSources*];
+			newSystems* := <uneven-zip(add-nop-to(|ast))>(extendedSources*, systems*);
+			newerSystems* := <add-outputs(|newSystems*)>(outports*, indices*);
+			resSystems* := <update-sources(|sysNum)> (tuples*, sources*, newerSystems*);
+			connectPort := IntPair(<index(|1); inc; int-to-string> modSizes*, "1")
+		
+	inv:
+		x -> <subt>(0, x)
+		
+	add-nop-to(|ast):
+		([], System(mods*, i, o, s, d, e)) -> System(mods*, i, o, s, d, e)
+		
+	add-nop-to(|ast):
+		(source, System(mods*, i, o, s, d, e)) -> System(newMods*, i, o, s, d, e)
+		with
+			yPos := <modules-get-top-right(|ast); intpair-gety> mods*;
+			nop* := [Module("0", "0", Block(IntPair("0", yPos), "90", "1"), [source])];
+			newMods* := [mods*, nop*]
+			
+	update-sources(|sysNum):
+		([(sysIndex, IntPair(x, y))| tuples*], sources*, systems*) -> resSystems*
+		with
+			currentSource := <index(|<subt>(<subt>(sysIndex, 1), sysNum))> sources*;
+			currentSystem := <index(|sysIndex)> systems*;
+			newSystem := <system-set-source(|<string-to-int> x, <string-to-int> y, currentSource)> currentSystem;
+			newSystems* := <set-index>(<subt>(sysIndex, 1), newSystem, systems*);
+			resSystems* := <update-sources(|sysNum)>(tuples*, sources*, newSystems*)
+			
+	update-sources(|sysNum):
+		([], sources*, systems*) -> systems*
+	
+	set-input(|inputNo, port):
+		systems* -> resSystems*
+		with
+			thisSystem := <index(|1)> systems*;
+			newSystem := <system-add-input(|inputNo, port)> thisSystem;
+			resSystems* := <set-index>(0, newSystem, systems*)
+	
+	add-outputs(|systems*):
+		([port | ports*], [sysIndex, indices*]) -> resSystems*
+		with
+			thisSystem := <index(|sysIndex)> systems*;
+			newSystem := <system-add-output(|port)> thisSystem;
+			newSystems* := <set-index>(<subt>(sysIndex, 1), newSystem, systems*);
+			resSystems* := <add-outputs(|newSystems*)>(ports*, indices*)
+			
+	add-outputs(|systems*):
+		([], []) -> systems*
+		
+	remove-inputs:
+		[system|systems*] -> resSystem*
+		with
+			newSystems* := <map(system-clear-inputs)> systems*;
+			resSystem* := [system, newSystems*]
+	
+	/*
+		Connect systems without sorting them: just connects them in the same order 
+		as the one they were declared in, always putting the output last.
+	*/
+	
+	connect-without-sorting(|ast):
+		systems* -> resSystem
+		with
+			length := <length> systems*;
+			if <eq> (length, 1) then
+				resSystem := <index(|1)> systems*
+			else
+				sizes* := <map(system-get-module-num)> systems*;
+				additionalSizes := <fold-and-add(|0)> sizes*;
+				sysLocalInputTuples* := <map-with-index(resolve-connections(|systems*, additionalSizes))> systems*;
+				resSystem := <place-all(|ast)> sysLocalInputTuples*
+			end
+			
+	fold-and-add(|index):
+		[num, nums*] -> res*
+		with
+			thisRes := index;
+			thatRes* := <fold-and-add(|<add>(index, num))> nums*;
+			res* := [thisRes, thatRes*]
+			
+	fold-and-add(|index):
+		[] -> res*
+		with
+			res* := []
+		
+	/*
+		resolve-connections does the following things:
+			-it updates the module numbers of sources that refered to other signals
+			-it links input and output ports of systems that are connected to each other
+	*/	
+	
+	resolve-connections(|origSystems*, additionalSizes):
+		(index, System(mods*, inputs*, outputs*, s, l, e)) -> (System(newMods*, inputs*, newOutputs*, s, l, e), localInputs*)
+		with
+			(newMods*, localTuples*) := <map-with-index(update-connected-mod(|origSystems*, additionalSizes, index)); unzip> mods*;
+			newOutputs* := <map(intpair-addX-cond(gt |<index(|index)> additionalSizes, 0))> outputs*;
+			if <eq>(index, 1) then
+				localInputs* := []
+			else
+				emptyInputs* := <copy>(<index(|<subt>(index, 1)); system-get-output-num> origSystems*, Input([]));
+				localInputs* := <concat; tuples-to-inputs(|emptyInputs*, <index(|index)> additionalSizes)> localTuples*
+			end
+		
+	update-connected-mod(|origSystems*, additionalSizes, systemIndex):
+		(moduleNum, Module(num, block, time, sources*)) -> (Module(num, block, time, newSources*), resTuples*)
+		with
+			(newSources*, rawTuples*) := <map-with-index(update-connected-source(|origSystems*, additionalSizes, systemIndex, moduleNum)); unzip> sources*;
+			resTuples* := <concat> rawTuples*
+		
+	update-connected-source(|origSystems*, additionalSizes, systemIndex, moduleIndex):
+		(portNum, IntPair(x, y)) -> (res, resTuple*)
+		with
+			intX := <string-to-int> x;
+			if <eq>(intX, 0) then
+				res := IntPair(x, y);
+				resTuple* := [(<string-to-int> y,(moduleIndex, portNum))]
+			else
+				if <lt>(intX, 0) then
+					negX := <subt>(0, intX);
+					outPort := <index(|negX); system-get-outputs; index(|<string-to-int> y)> origSystems*;
+					res := <intpair-addX-cond(gt|<index(|negX)> additionalSizes, 0)> outPort;
+					resTuple* := [(<string-to-int> y,(moduleIndex, portNum))]
+				else
+					res := <intpair-addX(|<index(|systemIndex)> additionalSizes)> IntPair(x, y);
+					resTuple* := []
+				end
+			end
+	
+	tuples-to-inputs(|currentInputs*, addSize):
+		[(num, inputTuple) | tuples*] -> resInputs*
+		with
+			thisInput := <index(|num)> currentInputs*;
+			newInput := <input-add-intpairs(|[<tuple-to-intpair; intpair-addX-cond(gt|addSize, 0)> inputTuple])> thisInput;
+			newInputs* := <set-index>(<dec> num, newInput, currentInputs*);
+			resInputs* := <tuples-to-inputs(|newInputs*, addSize)> tuples* 
+			
+	tuples-to-inputs(|currentInputs*, addSize):
+		[] -> currentInputs*
+	
+	place-all(|ast):
+		[(system, localInputs*) | systems*] -> resSystem
+		with
+			length := <length> systems*;
+			if <eq> (length, 0) then
+				resSystem := system
+			else
+				thatSystem := <Hd; tuple-getx> systems*;
+				thatLocalInputs* := <Hd; tuple-gety> systems*;
+				if <eq>(<system-get-module-num> thatSystem, 0) then
+					newSystem := <merge-inputs-outputs>(system, thatSystem);
+					updatedSystems* := systems*
+				else
+					(additionalModules, newSystem) := <place-in-X(|ast, thatLocalInputs*)>(system, thatSystem);
+					updatedSystems* := <map(tuple-apply-on-y(map(input-addx-to-all(|additionalModules, 0))); tuple-apply-on-x(system-increase-mod-sources-by(gt|additionalModules, 0); system-increase-port-mods-by(gt|additionalModules, 0)))> systems*
+				end;
+				newSystems* := <set-index> (0, (newSystem, []), updatedSystems*);
+				resSystem := <place-all(|ast)> newSystems*
+			end
+		
+	is-not-empty:
+		System([],[],[],IntPair("0","0"),"0","0") -> <fail>
+		
+	is-not-empty:
+		System(mods*, [input | inputs1*], [output| outputs1*], size, delay, energy) -> System(mods*, [input | inputs1*], [output| outputs1*], size, delay, energy)
+		
+	merge-inputs-outputs:
+		(System(mods*, inputs1*, outputs1*, size, delay, energy), System(_, inputs2*, outputs2*, _, _, _)) -> System(mods*, newInputs1*, outputs2*, size, delay, energy)
+		with
+			newInputs1* := <zip(input-merge)>(inputs1*, inputs2*)
+		

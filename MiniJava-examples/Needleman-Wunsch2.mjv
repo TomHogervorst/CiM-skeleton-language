@@ -1,0 +1,105 @@
+LibMod(add, (40,32), 180, 125, ((0,0), 90, 1)((0,32), 270, 0), ((40,0), 90, 0));
+LibMod(mul, (256,128), 803, 134, ((0,48), 90, 1)((48,128), 180, 0), ((256,0), 90, 0));
+LibMod(subt, (40,32), 180, 125, ((0,0), 90, 1)((0,32), 270, 0), ((40,0), 90, 0));
+LibMod(div, (201,280), 6064, 5190, ((0,0), 90, 1)((0,280), 270, 0), ((201,280), 270, 1));
+LibMod(gt, (128, 192), 27, 93, ((0,0), 90, 1)((64,0), 90, 1), ((128, 192), 270, 1));
+LibMod(mux2, (96, 97), 5, 22, ((0,1), 90, 1)((0,33), 90, 1)((0,0), 0, 0), ((96,97), 270, 1));
+LibMod(LUT, (405,106), 7, 603, ((0,0), 90, 1)((0,37), 90, 1),((405,106), 270, 1));
+LibMod(GO, (288,256), 36, 67, ((0,0), 90, 1)((0,256), 270, 0),((288,97), 270, 1));
+LibMod(gap, (40,32), 180, 125, ((0,0), 90, 1), ((40,0), 90, 0));
+LibMod(sort2, (288,256), 36, 72, ((0,0), 90, 1)((0,256), 270, 0), ((288,97), 270, 1)((288,191), 90, 0));
+LibMod(NW, (1022, 429), 441, 1112, ((0, 0), 90, 1) ((0, 138), 90, 1) ((0, 0), 0, 0)  ((32, 0), 0, 0)  ((64, 0), 0, 0),  ((1022, 0), 90, 0) ((32, 428), 180, 0) ((990, 427), 0, 1) ((1022, 97), 90, 0));
+
+component main<in[29] | out[20]>(){ // inputs: 5 + (m-1) * 3 + (n-1) * 3 outputs: 4 + (m-1)*2 + (n-1)*2
+	int n = 5;
+	int m = 5;
+	in[0:29] => foldr<*_Y_*>(repeat[m](foldr<*_X_*>(repeat[n](NW_block())))) => out[0:20];
+}
+
+component NW_block<in[5] | out[4]>(){
+	in[0:5] => repeat[5](NOP) *_B_* {NOP, NOP, (({LUT, NOP, {gap, gap} *_I_* GO} *_I_* {add, NOP} *_I_* GO) *_O_* {NOP, NOP})}  => out[0:4];
+}
+
+skeleton *_B_* <<_ | _>us[5] | <_ | _>ds[3]>(){
+	int i;
+	us[0].rot = ds[0].rot;
+	us[0].mir = ds[0].mir;
+	us[0].pos = ds[0].pos.translate((0-96, 0));
+	
+	us[1].rot = ds[0].rot;
+	us[1].mir = ds[0].mir;
+	us[1].pos = ds[0].pos.translate((0-96, ds[2].inport(2).pos.Y + 32));
+	
+	us[2].rot = ds[0].rot+270;
+	us[2].mir = !ds[0].mir;
+	us[2].pos = ds[0].pos.translate((0-96, 0));
+	
+	us[3].rot = ds[0].rot+270;
+	us[3].mir = !ds[0].mir;
+	us[3].pos = ds[0].pos.translate((0-64, 0));
+	
+	us[4].rot = ds[0].rot+270;
+	us[4].mir = !ds[0].mir;
+	us[4].pos = ds[0].pos.translate((0-32, 0));
+	
+	ds[1].rot = ds[0].rot+270;
+	ds[1].mir = !ds[0].mir;
+	ds[1].pos = ds[0].pos.translate((0-64, ds[2].size.Y+32));
+	
+	ds[2].rot = ds[0].rot;
+	ds[2].mir = ds[0].mir;
+	ds[2].pos = ds[0].pos.translate((0, 32));
+	
+	ds[0].inport(0) = us[0].outport(0);
+	ds[1].inport(0) = us[3].outport(0);
+	ds[2].inport(0) = us[0].outport(0);
+	ds[2].inport(1) = us[3].outport(0);
+	ds[2].inport(2) = us[2].outport(0);
+	ds[2].inport(3) = us[4].outport(0);
+	ds[2].inport(4) = us[1].outport(0);
+	
+	for i = 0:3 do
+		ds[i].time = us[0].time;
+	end;
+}
+
+skeleton *_O_* <<_ | _>us[1] | <_ | _>ds[2]>(){
+	ds[0].inport(0) = us[0].outport(0);
+	ds[1].inport(0) = us[0].outport(0);
+	
+	ds[0].rot = us[0].rot+270;
+	ds[0].mir = !us[0].mir;
+	ds[0].pos = us[0].pos.translate((us.size.X, us.size.Y+32));
+	
+	ds[1].rot = us[0].rot;
+	ds[1].mir = us[0].mir;
+	ds[1].pos = us[0].pos.translate((us.size.X + 32, us[0].outport(0).pos.Y));
+	
+	ds[0].time = us.time + us[0].delay;
+	ds[1].time = us.time + us[0].delay;
+}
+
+skeleton *_X_* <<_ | _>us[1] | <_ | _>ds[1]>(){
+	ds[0].inport(0) = us[0].outport(0);
+	ds[0].inport(1) = us[0].outport(3);
+	ds[0].rot = us[0].rot;
+	ds[0].mir = us[0].mir;
+	ds[0].pos = us[0].pos.translate((us[0].size.X+32, 0));
+	ds.time = us[0].time + us[0].delay;
+}
+
+skeleton *_Y_* <<_ | n>us[1] | <_ | _>ds[1]>(int n){
+	int i;
+	int mod_num = (n-2)/2;
+	ds[0].inport((mod_num-1)*3+3) = us[0].outport(1);
+	ds[0].inport((mod_num-1)*3+4) = us[0].outport(2);
+	for i = 0 : mod_num - 1 do
+		ds[0].inport(i*3+3) = us[0].outport(n-2*i-2);
+		ds[0].inport(i*3+4) = us[0].outport(n-2*i-1);
+		ds[0].inport(i*3+5) = us[0].outport(n-2*i-1);
+	end;
+	ds[0].rot = us[0].rot;
+	ds[0].mir = us[0].mir;
+	ds[0].pos = us[0].pos.translate((0, us[0].size.Y+32));
+	ds.time = us[0].time + 1112;
+}

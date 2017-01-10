@@ -1,0 +1,20 @@
+module LibMod
+
+imports
+  Common
+  IntPair
+  Block
+  
+sorts
+  LibMod
+  
+context-free start-symbols
+  LibMod
+  
+template options
+  tokenize: "()[]"
+  keyword -/- [a-zA-Z]
+
+context-free syntax 
+  //                       name,  size,  latency, energy, inputs, outputs
+  LibMod.LibMod = <LibMod(<ID>, <IntPair>, <INT>, <INT>, <Block*>, <Block*>);>

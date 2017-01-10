@@ -1,0 +1,5 @@
+module MiniJava-Syntax
+
+imports MiniJava-Syntax.generated
+
+language

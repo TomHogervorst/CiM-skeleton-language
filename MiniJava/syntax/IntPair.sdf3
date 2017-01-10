@@ -1,0 +1,17 @@
+module IntPair
+
+imports
+  Common
+  
+sorts
+  IntPair
+  
+context-free start-symbols
+  IntPair 
+  
+template options
+  tokenize: "()[]"
+  keyword -/- [a-zA-Z]
+
+context-free syntax
+  IntPair.IntPair = <(<INT>, <INT>)> 

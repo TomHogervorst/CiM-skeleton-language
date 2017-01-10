@@ -1,0 +1,212 @@
+module signal-check
+
+imports
+
+  libstratego-gpp
+  lib/runtime/tmpl/pp
+  src-gen/signatures/-
+  include/MiniJava-parenthesize
+  deref
+  signal-trans
+  skeleton-trans
+  program-trans
+
+rules
+	
+	signal-check:
+    ast -> <unroll-and-dereference(|ast); check-main(|ast)> ast
+    
+    check-main(|ast):
+    	(tuples*, statements*) -> res
+    	with
+    		(insize, outsize, signalSizes*) := <get-main-sizes> ast;
+   			
+    		statementsRes* := <map(check-signals(|ast, insize, outsize, signalSizes*, tuples*))> statements*;
+    		res:= <foldl(mul)>(statementsRes*, 1)
+    
+    
+    		
+    check-signals(|ast, insize, outsize, signalSizes*, tuples*):
+    	VarAssign(_, _) -> 1
+    	
+    check-signals(|ast, insize, outsize, signalSizes*, tuples*):
+    	SignalAssign(num, array, signal, None()) -> res
+    	with
+    		thisSignalLength := <length> array;
+    		thatSignalLength := <signal-get-length> signal;
+    		thatRes := <check-signal(|insize, signalSizes*)> signal;
+    		arrayMax := <foldl(max)> (array, 0);
+    		sigSize := <index(|num)> signalSizes*;
+    		if <gt>(arrayMax, sigSize)
+    		then thisRes := 0;
+    			<debug(!"Signal reference exceeds signal size ")> arrayMax
+    		else thisRes := 1
+    		end;
+    		if <eq> (thisSignalLength, thatSignalLength)
+    		then lengthRes := 1
+    		else lengthRes := 0;
+    			<debug(!"Cannot assign a signal to a signal of different length: ")> (thisSignalLength, thatSignalLength)
+    		end;
+    		tempRes := <mul>(thisRes, thatRes);
+    		res := <mul>(tempRes, lengthRes)
+    		
+    check-signals(|ast, insize, outsize, signalSizes*, tuples*):
+    	SignalAssign(num, array, signal, Some(ConSkel(_, skel))) -> res
+    	with
+    		outputLength := <length> array;
+    		skelInLength := <skeleton-get-input-length(|ast)> skel;
+    		skelOutLength := <skeleton-get-output-length(|ast)> skel;
+    		signalRes := <check-signal(|insize, signalSizes*)> signal;
+    		signalLength := <signal-get-length> signal;
+    		arrayMax := <foldl(max)> (array, 0);
+    		sigSize := <index(|num)> signalSizes*;
+    		if <gt>(arrayMax, sigSize)
+    		then outSizeRes := 0;
+    			<debug(!"Signal reference exceeds signal size ")>(arrayMax, outsize)
+    		else outSizeRes:= 1
+    		end;
+    		if <eq> (outputLength, skelOutLength)
+    		then outputRes := 1
+    		else outputRes := 0;
+    			<debug(!"Cannot assign a skeleton output signal to a signal with a different length: ")> (skelOutLength, outputLength)
+    		end;
+    		if <eq> (signalLength, skelInLength)
+    		then inputRes := 1
+    		else inputRes := 0;
+    			<debug(!"Cannot connect a signal to a skeleton with a different length: ")> (signalLength, skelInLength)
+    		end;
+    		skelRes := <check-skeleton(|ast, tuples*)> skel;
+    		connectionRes := <mul>(outputRes, inputRes);
+    		signalsRes := <mul>(connectionRes, signalRes);
+    		otherRes := <mul>(outSizeRes, skelRes);
+    		res := <mul> (signalsRes, otherRes)
+    	
+    check-signals(|ast, insize, outsize, signalSizes*, tuples*):
+    	OutputAssign(array, signal, None()) -> res
+    	with
+    		thisSignalLength := <length> array;
+    		thatSignalLength := <signal-get-length> signal;
+    		thatRes := <check-signal(|insize, signalSizes*)> signal;
+    		arrayMax := <foldl(max)> (array, 0);
+    		if <gt>(arrayMax, outsize)
+    		then thisRes := 0;
+    			<debug(!"Output reference exceeds output size ")> arrayMax
+    		else thisRes := 1
+    		end;
+    		if <eq> (thisSignalLength, thatSignalLength)
+    		then lengthRes := 1
+    		else lengthRes := 0;
+    			<debug(!"Cannot assign a signal to a signal of different length: ")> (thisSignalLength, thatSignalLength)
+    		end;
+    		tempRes := <mul>(thisRes, thatRes);
+    		res := <mul>(tempRes, lengthRes)
+    		
+    check-signals(|ast, insize, outsize, signalSizes*, tuples*):
+    	OutputAssign(array, signal, Some(ConSkel(_, skel))) -> res
+    	with
+    		outputLength := <length> array;
+    		skelInLength := <skeleton-get-input-length(|ast)> skel;
+    		skelOutLength := <skeleton-get-output-length(|ast)> skel;
+    		signalRes := <check-signal(|insize, signalSizes*)> signal;
+    		signalLength := <signal-get-length> signal;
+    		arrayMax := <foldl(max)> (array, 0);
+    		if <gt>(arrayMax, outsize)
+    		then outSizeRes := 0;
+    			<debug(!"Output reference exceeds signal size ")>(arrayMax, outsize)
+    		else outSizeRes:= 1
+    		end;
+    		if <eq> (outputLength, skelOutLength)
+    		then outputRes := 1
+    		else outputRes := 0;
+    			<debug(!"Cannot assign a skeleton output signal to a signal with a different length: ")> (skelOutLength, outputLength)
+    		end;
+    		if <eq> (signalLength, skelInLength)
+    		then inputRes := 1
+    		else inputRes := 0;
+    			<debug(!"Cannot connect a signal to a skeleton with a different length: ")> (signalLength, skelInLength)
+    		end;
+    		skelRes := <check-skeleton(|ast, tuples*)> skel;
+    		connectionRes := <mul>(outputRes, inputRes);
+    		signalsRes := <mul>(connectionRes, signalRes);
+    		otherRes := <mul>(outSizeRes, skelRes);
+    		res := <mul> (signalsRes, otherRes)
+    		
+    check-skeleton(|ast, tuples*):
+    	Nop() -> 1
+    	
+    check-skeleton(|ast, tuples*):
+    	VarRef(_) -> 1
+    	
+    check-skeleton(|ast, tuples*):
+    	LibModNum(_) -> 1
+    		
+    check-skeleton(|ast, tuples*):
+    	Connect(skel1, _, skel2) -> res
+    	with
+    		skelRes1 := <check-skeleton(|ast, tuples*)> skel1;
+    		skel1OutLength := <skeleton-get-output-length(|ast)> skel1;
+    		skel2InLenght := <skeleton-get-input-length(|ast)> skel2;
+    		skelRes2 := <check-skeleton(|ast, tuples*)> skel2;
+    		if <eq> (skel1OutLength, skel2InLenght)
+    		then connectRes := 1
+    		else connectRes := 0;
+    			<debug(!"Cannot connect a skeleton to a skeleton with a different input length than its output length ")> (skel1OutLength, skel2InLenght, Connect(skel1, "*", skel2))
+    		end;
+    		skelRes := <mul>(skelRes1, skelRes2);
+    		res := <mul>(connectRes, skelRes)
+    		
+    check-skeleton(|ast, tuples*):
+    	CompRef((index, argArray*), sizes) -> res
+    	with
+    		statements* := <lookup>((index, argArray*), tuples*);
+    		(insize, outsize) := <get-comp-in-out-nums(|index, argArray*)> ast;
+    		signalSizes* := <get-comp-signal-sizes(|index)> ast;
+    		statementsRes* := <map(check-signals(|ast, insize, outsize, signalSizes*, tuples*))> statements*;
+    		res:= <foldl(mul)>(statementsRes*, 1)
+    		
+    		
+    check-skeleton(|ast, tuples*):
+    	skels* -> res
+    	with
+    		skelsRes* := <map(check-skeleton(|ast, tuples*))> skels*; 
+    		res := <foldl(mul)> (skelsRes*, 1)
+    		
+    check-signal(|insize, signalSizes*):
+    	InputSig(array*) -> res
+    	with
+    		arrayMax := < foldl(max)> (array*, 0);
+    		if <gt>(arrayMax, insize)
+    		then res := 0;
+    			<debug(!"Input signal reference exceeds input size ")> (arrayMax, insize)
+    		else res := 1
+    		end
+    		
+    check-signal(|insize, signalSizes*):
+    	SigRef(name, array*) -> res
+    	with
+    		num := <signal-get-index> name;
+    		signalSize := <index(|num)>signalSizes*;
+    		arrayMax := <foldl(max)> (array*, 0);
+    		if <lt>(arrayMax, signalSize)
+    		then res := 0;
+    			<debug(!"Signal reference exceeds input size ")>(name, arrayMax)
+    		else res := 1
+    		end
+    		
+    check-signal(|insize, signalSizes*):
+    	ConcurSig(signal1, signal2) -> res
+    	with
+    		res1 := <check-signal(|insize, signalSizes*)> signal1;
+    		res2 := <check-signal(|insize, signalSizes*)> signal2;
+    		res := <mul>(res1, res2)
+    		
+    check-signal(|insize, signalSizes*):
+    	ConcurSig(signal1, signal2) -> res
+    	with
+    		res1 := <check-signal(|insize, signalSizes*)> signal1;
+    		res2 := <check-signal(|insize, signalSizes*)> signal2;
+    		res := <mul>(res1, res2)
+    		
+    
+    		
+    	

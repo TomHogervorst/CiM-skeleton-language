@@ -1,0 +1,23 @@
+module graphics/DrawBlock
+
+imports
+  Common
+  IntPair
+  
+sorts
+  DrawBlock
+  DrawConnection
+  
+context-free start-symbols
+  DrawBlock
+  DrawConnection
+  
+template options
+  tokenize: "()"
+  tokenize: "[]"
+
+context-free syntax
+    DrawConnection.DrawConnection = <DrawConnection(ps, <INT>, <INT>, <INT>, <INT>);>
+
+  //              xpos, ypos, xsize, ysize, angle, mir
+  DrawBlock.DrawBlock = <DrawBlock(ps, <INT>, <INT>, <INT>, <INT>, <INT>, <INT>);>

@@ -1,0 +1,21 @@
+module MiniJava-Menus
+
+menus
+  
+  menu: "Syntax" (openeditor)
+    
+    action: "Format"               		= editor-format (realtime) (source)
+    action: "Show abstract syntax" 		= debug-show-aterm (realtime) (meta) (source)
+    action: "Show dereferenced syntax"  = debug-show-deref (realtime) (meta)
+    action: "Check signal sizes"  		= debug-check-signals (realtime) (meta)
+    action: "Show DFG"             		= debug-show-dfg (realtime) (meta)
+    action: "Show mapping"         		= debug-show-mapping (realtime) (meta)
+    action: "Generate SystemC"			= generate-systemc (realtime) (meta)
+    action: "Generate drawing"	   		= debug-draw (realtime) (meta)
+    
+    submenu: "Show index"              (openeditor)
+      action: "Project"              = debug-index-project
+      action: "Project (resolved)"   = debug-index-project-resolve
+      action: "Partition"            = debug-index-partition
+      action: "Partition (resolved)" = debug-index-partition-resolve
+    end

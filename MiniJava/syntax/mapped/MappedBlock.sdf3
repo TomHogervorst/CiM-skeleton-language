@@ -1,0 +1,19 @@
+module mapped/MappedBlock
+
+imports
+  Common
+
+  
+sorts
+  MappedBlock
+  
+context-free start-symbols
+  MappedBlock
+  
+template options 
+  tokenize: "()"
+  tokenize: "[]"
+
+context-free syntax
+  //              x, y, angle
+  MappedBlock.MappedBlock = <<INT>, <INT>, <INT>>

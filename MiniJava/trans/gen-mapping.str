@@ -1,0 +1,241 @@
+module gen-mapping
+
+imports
+
+  libstratego-gpp
+  lib/runtime/tmpl/pp
+  src-gen/signatures/-
+  src-gen/signatures/mapped/-
+  include/MiniJava-parenthesize
+  program-trans
+  libmod-trans
+  intpair-trans
+  block-trans
+  module-trans
+  gen-dfg
+  system-trans
+  pp
+  helper
+
+rules
+  
+  gen-mapping:
+    ast -> result
+    with
+      dfg := <gen-dfg> ast
+	  ; mapping := <dfg-to-mapping(|ast)> dfg
+      ; result := <pp-start-symbols; !V([], <id>); box2text-string(|120)> mapping
+		
+	dfg-to-mapping(|ast):
+		System( ModuleList*, InputRegs*, OutputRegs*, size, delay, energy)-> res
+		with
+			outputs* := <map-with-index(to-output-index)> OutputRegs*;
+			mappedModules := <modules-to-mapping(|ast, 1, InputRegs*, outputs*, [])> ModuleList*;
+			intDecls := <map(modules-get-int); concat; map(to-int-decl)> mappedModules;
+			res := MappedSystem(intDecls, mappedModules) 
+	
+	modules-get-int:
+		SingleModule(num, _) -> res*
+		with
+			res* := [num]
+		
+	modules-get-int:
+		OutputModule(_, _) -> res*
+		with
+			res* := []
+	
+	to-int-decl:
+		int -> IntDecl(int)
+	
+	to-output-index:
+		(index, IntPair(x, y)) -> (<string-to-int> x, index)
+	
+	/*modules-to-mapping(|ast, num, inputs*, outputs*, outputPorts*):
+		[Module("0", _, _, _) | ModuleList*] -> res*
+		with
+			newNum := <addi> (num, 1);
+			emptyPort* := ["empty"];
+			newOutputPorts* := [outputPorts*, emptyPort*];
+			res* := <modules-to-mapping(|ast, newNum, inputs*, outputs*, newOutputPorts*)> ModuleList*
+	*/
+	modules-to-mapping(|ast, num, inputs*, outputs*, outputPorts*):
+		[mod | moduleList*] -> res*
+		with
+			number := <module-get-id; string-to-int> mod
+			;lib := <get-libmod(|number)> ast
+			;(outputPort, (numString, mappedModule)) := <module-to-mapping(|lib, num, inputs*, outputPorts*)> mod
+			;if <lookup>(num, outputs*) then
+			  mappedModule* := [OutputModule(<lookup; int-to-string>(num, outputs*), mappedModule)]
+			else
+			  mappedModule* := [SingleModule(numString, mappedModule)]
+			end
+			; newOutputPorts* := [outputPorts*, outputPort]
+			;mappedModules* := <modules-to-mapping(|ast, <inc> num, inputs*, outputs*, newOutputPorts*)> moduleList*
+			;res* := [mappedModule*, mappedModules*]
+			  
+	modules-to-mapping(|ast, num, inputs*, outputs*, outputPorts*):
+		[] -> res*
+		with
+			res* := []
+
+			   
+	module-to-mapping(|lib, num, inputs*, outputPorts*):
+		Module(typeNum, time, block, sources*) -> (outputPort, res)
+		with
+			size := <libmod-get-input-num> lib
+			;rotation := <block-get-angle> block
+			;moduleSize := <libmod-get-size; rotate-if-needed(|rotation)> lib
+			; moduleTime := <libmod-get-latency> lib
+			; energy := <libmod-get-energy> lib
+			; inputPorts* := <libmod-get-inputs; map(block-inherit(|block); map-block(|IntPair("32","1")))> lib
+			; outputPort := <libmod-get-outputs; index(|1); block-inherit(|block); map-block(|IntPair("32","1"))> lib
+			;  inList* := <inputs-to-list(|num, inputs*)>sources*
+			; numString := <int-to-string> num
+			; mappedPosition := <map-block(|<libmod-get-size> lib)> block
+			; connections* := <copy>(<length> inputPorts*, 1)
+			; mappedInputPorts* := < map-input-ports>( inList*, connections*, inputPorts*)
+			;res := (numString, MappedModule(typeNum, mappedPosition, <intpair-getx> moduleSize, <intpair-gety> moduleSize, time, moduleTime, energy, outputPort, mappedInputPorts*))
+			 
+	rotate-if-needed(|angle):
+		IntPair(x,y) -> IntPair(newX, newY)
+		with
+			switch !angle
+			case ?"0":
+				newX := x
+				; newY := y
+			case ?"90":
+				newX := y
+				; newY := x
+			case ?"180":
+				newX := x
+				; newY := y
+			case ?"270":
+				newX := y
+				; newY := x
+			otherwise:
+				<debug(!"Invalid angle: ")> angle
+			end
+			
+	map-block(|size):
+		Block(IntPair(x, y), rot, mir) -> MappedBlock(<intpair-getx> newPos, <intpair-gety> newPos, rot)
+		with
+			newPos := <block-get-bottom-left(|size)> Block(IntPair(x, y), rot, mir)
+		
+	map-input-port:
+		(("in", inNum), num, block) -> MappedInputPort(inNum, num, block)
+		
+	map-input-port:
+		(("m", mNum), num, block) -> MappedModulePort(mNum, num, block)
+		
+	map-input-ports:
+		([tuple | tuples*], [num | nums*], [block | blocks*]) -> res*
+		with
+			thisRes* := [<map-input-port>(tuple, num, block)];
+			restRes* := <map-input-ports>(tuples*, nums*, blocks*);
+			res* := [thisRes*, restRes*]
+	
+	map-input-ports:
+		([], [], []) -> res*
+		with
+			res* := []	
+			
+	inputs-to-list(|moduleNum, inputs*):
+		entries* -> res*
+		with
+			inputPorts* := <map(input-get-inputs); map-with-index(find-inputs(|moduleNum)); concat; qsort(lt-X); map(tuple-gety); debug> inputs*;
+			 modulePorts* := <find-module-ports> entries*;
+			res* := [inputPorts*, modulePorts*]
+			
+	find-inputs(|moduleNum):
+		(index, [input | inputs*]) -> res*
+		with
+			x := <intpair-getx; string-to-int> input;
+			if <eq> (x, moduleNum)
+			then tempRes* := [(<intpair-gety; string-to-int> input, ("in", <int-to-string> index))]
+				; <debug(!"Found input: ")>(moduleNum, index, input)	
+			else tempRes* := []
+			end;
+			 restString* := <find-inputs(|moduleNum)>(index, inputs*);
+			res* := [tempRes*, restString*]
+			
+	find-inputs(|moduleNum):
+		(index, []) -> res*
+		with
+			res* := []
+		
+	find-module-ports:
+		[entry | entries*] -> res*
+		with
+			x := <intpair-getx> entry;
+			if <eq>(<string-to-int> x, 0) then
+				res* := <find-module-ports> entries*
+			else
+				firstString* := [("m", x)];
+				restString* := <find-module-ports> entries*;
+				res* := [firstString*, restString*]
+			end
+			
+	find-module-ports:
+		[] ->  res*
+		with
+			res* := []
+			
+	/*
+		Find the length in cycles between two ports in the mapped block format
+		This function assumes that every port is 32 long.
+	*/
+	connection-length:
+		(MappedBlock(xout, yout, angleout), MappedBlock(xin, yin, anglein)) -> res
+		with
+			switch !angleout
+			case ?"0":
+				xout1 := <string-to-int> xout
+				; yout1 := <string-to-int> yout
+			case ?"90":
+				 xout1 :=  <string-to-int> xout
+				; yout1 := <string-to-int> yout
+			case ?"180":
+				xout1 :=  <subti> (<string-to-int> xout, 32)
+				; yout1 := <string-to-int> yout
+			case ?"270": 
+				xout1 :=  <string-to-int> xout
+				; yout1 := <subti> (<string-to-int> yout, 32)
+			otherwise:
+				<debug(!"Invalid angle: ")> angleout
+			end;
+			switch !anglein
+			case ?"0":
+				xin1 := <string-to-int> xin
+				;yin1 := <string-to-int> yin
+			case ?"90":
+				xin1 :=  <string-to-int> xin
+				; yin1 := <string-to-int> yin
+			case ?"180":
+				xin1 :=  <subti> (<string-to-int> xin, 32)
+				; yin1 := <string-to-int> yin
+			case ?"270":
+				xin1 :=  <string-to-int> xin
+				; yin1 := <subti> (<string-to-int> yin, 32)
+			otherwise:
+				<debug(!"Invalid angle: ")> anglein
+			end;
+			angleDifference := <subti>(<string-to-int> anglein, <string-to-int> angleout);
+
+			if <lt>(angleDifference, 0)
+			then angleDifference2 := <addi>(angleDifference, 360)
+			else angleDifference2 := angleDifference
+			end;
+			if <geq>(angleDifference2, 180)
+			then angleDifference3 := <subti; int-to-string>(angleDifference2, 180)
+			else angleDifference3 := <int-to-string>angleDifference2
+			end;
+			if <eq>(angleDifference3, 90)
+			then res := "2"
+			else if <eq>(xout1, xin1)
+				then res := "1"
+				else if<eq>(yout1,yin1)
+					then res := "1"
+					else res := "3"
+					end
+				end
+			end			

@@ -1,0 +1,33 @@
+module Entity
+
+imports
+  Common
+  Statement
+  Type
+  Expression
+  
+sorts
+  MainEntity
+ Entity
+  
+context-free start-symbols
+  MainEntity
+  Entity
+  
+template options
+  tokenize: "{("
+  keyword -/- [a-zA-Z]
+ 
+context-free syntax
+
+ArgDecl.ArgDecl = <<Type> <ID>>
+SigArg.SigArg = <<ID>[<Exp>]>
+SigArg.SingleSigArg = <<ID>>
+
+MainEntity.Main = <component main\<<{SigArg ", "}+> | <{SigArg ", "}+>\>(<{ArgDecl ", "}*>){
+	<{Statement "\n"}*>
+}>
+
+Entity.Entity = <component <ID>\<<{SigArg ", "}+> | <{SigArg ", "}+>\>(<{ArgDecl ", "}*>){
+	<{Statement "\n"}*>
+}>

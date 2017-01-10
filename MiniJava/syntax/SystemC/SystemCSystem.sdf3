@@ -1,0 +1,56 @@
+module SystemC/SystemCSystem
+
+imports
+  Common
+  SystemC/SystemCModule
+  
+sorts
+  SystemCSystem
+  
+context-free start-symbols
+  SystemCSystem
+  
+template options
+  tokenize: "()"
+  tokenize: "[]"
+
+context-free syntax
+  SystemCSystem.HeaderFile = <#ifndef _CIM_SYSTEM_H
+#define _CIM_SYSTEM_H
+
+#include "reg.h"
+#include "adder_signed.h"
+#include "multiplier_signed.h"
+#include "mux2.h"
+#include "gt.h"
+#include "nop.h"
+#include "mir.h"
+#include "subtractor_signed.h"
+#include "divider_signed.h"
+
+#include \<stdio.h\>
+
+template \<int input_size = <INT>, int output_size = <INT>\>
+class generated_system: sc_module
+{
+public:
+	sc_in\<sc_int\<32\> \> *input_sigs;
+    sc_out\<sc_int\<32\> \> *output_sigs;
+    sc_in\<bool\> clk;
+    sc_in\<bool\> reset;
+    sc_out\<bool\> *done;
+    sc_in\<bool\> valid;
+    
+    <{SystemCModuleDecls "\n"}*>
+    
+    SC_CTOR(generated_system)
+    {
+		input_sigs = new sc_in\<sc_int\<32\> \>[input_size];
+		output_sigs = new sc_out\<sc_int\<32\> \>[output_size];
+		done = new sc_out\<bool\>[output_size];
+		<{SystemCModuleConnects "\n"}*>
+	}
+
+};
+
+#endif>

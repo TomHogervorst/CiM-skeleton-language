@@ -1,0 +1,27 @@
+module mapped/MappedSystem
+
+imports
+  Common
+  mapped/MappedModule
+  
+sorts
+  MappedSystem
+  
+context-free start-symbols
+  MappedSystem
+  
+template options 
+  tokenize: "()"
+  tokenize: "[]"
+
+context-free syntax
+  //              LibModId,start,floorplan,  source
+  IntDecl.IntDecl = <m<INT>>
+  MappedSystem.SingleModule = <m<INT> = Module(<MappedModule>)>
+  MappedSystem.OutputModule = <out[<INT>] = Module(<MappedModule>)>
+  MappedSystem.MappedSystem = <int placeholder_function_name(int *in, int *out){
+  	int <{IntDecl ", "}*>;
+  	
+  	<{MappedSystem "\n"}*>
+  	return 0;
+  }>

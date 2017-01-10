@@ -1,0 +1,55 @@
+module Statement
+
+imports
+  Common
+  Expression
+  Signal
+  Type
+  
+sorts
+  Statement
+  
+context-free start-symbols
+  Statement
+  
+template options
+  tokenize: "("
+  keyword -/- [a-zA-Z]
+
+context-free syntax
+  ConnectingSkeleton.ConSkel = <<ConnectOp> <Exp>>
+  AltConSkel.AltConSkel = <<Exp> =\>>
+  Statement.VarAssign = <<ID> = <Exp>;>
+  Statement.ArrayAssign = <<ID>[<Exp>] = <Exp>;>
+  Statement.SignalAssign = <<ID>[<Exp>] \<= <Signal> <ConnectingSkeleton?>;>
+  Statement.SingleSignalAssign = <<ID> \<= <Signal> <ConnectingSkeleton?>;>
+  Statement.AltSignalAssign = <<Signal> =\> <AltConSkel?> <ID>[<Exp>];>
+  Statement.AltSingleSignalAssign = <<Signal> =\> <AltConSkel?> <ID>;> 
+  Statement.OutputAssign = <deprecated_out[<Exp>] \<= <Signal> <ConnectingSkeleton?>;>
+  Statement.IfThenElse = <if <Exp> then
+  	<{Statement "\n"}+>
+  else
+  	<{Statement "\n"}+>
+  end;> {left}
+  Statement.WhileLoop = <while <Exp> do
+  	<{Statement "\n"}+>
+  end;> {left}
+  Statement.ForLoop = <for <ID> = <Exp> do
+  	<{Statement "\n"}+>
+  end;> {left}
+  
+  Statement.CompAttrAssign = <<ID>[<Exp>].<Attr> = <Exp>;>
+  Statement.SingleCompAttrAssign = <<ID>.<Attr> = <Exp>;>
+  
+  Statement.VarDecl = <<Type> <ID>;>
+  Statement.VarDeclInit = <<Type> <ID> = <Exp>;>
+  Statement.SingleSignalDecl = <signal <ID>;>
+  Statement.SignalDecl = <signal <ID>[<Exp>];>
+  
+  ModInt.Any = <_>
+  ModInt.Int = <<INT>>
+  ModInt.Var = <<ID>>
+  
+  //Statement.ModDecl = <module \<<ModInt> | <ModInt>\><ID>[<Exp>];>
+  //Statement.SingleModDecl = <module \<<ModInt> | <ModInt>\><ID>;>
+  //SkelStatement.PortAssign = <<ID>.inport = <Exp>;>

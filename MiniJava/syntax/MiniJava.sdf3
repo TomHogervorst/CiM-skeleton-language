@@ -1,0 +1,109 @@
+module MiniJava
+
+imports
+  
+  Common
+  LibMod
+  Statement
+  Entity
+  Expression
+  Signal
+  Skeleton
+  
+sorts
+
+  Program
+
+context-free start-symbols
+  
+  Program
+  Option
+  MainEntity
+  Entity
+  Skeleton
+  Statement
+  Exp
+  ModExp
+   
+template options
+  tokenize: "()"
+  keyword -/- [a-zA-Z] 
+
+context-free syntax
+  
+  OptionName.Mapping = "MAPPING"
+  OptionName.Routing = "ROUTING"
+  Option.Option = <$DO <OptionName>: <Exp>>
+  
+  Program.Program = <
+<{Option "\n"}*>
+<{LibMod "\n"}*;hide>
+
+<MainEntity>
+
+<{Entity "\n\n"}*>
+
+<{Skeleton "\n\n"}*>
+>
+
+  
+
+context-free priorities
+{left:
+	Exp.CompAttr
+	Exp.CoordX
+	Exp.CoordY
+}>{left:
+	Exp.Power
+}>{left:
+	Exp.Mul
+	Exp.Div
+	Exp.Mod
+}>{left:
+	Exp.Add
+	Exp.Sub
+}>{left:
+	Exp.GT
+	Exp.LT
+	Exp.EQ
+	Exp.GEQ
+	Exp.LEQ
+}>{left:
+	Exp.AND
+	Exp.OR
+}>{left:
+	Exp.Range
+	Exp.Interval
+}>{left:
+	Exp.PartOfArray
+}>{left:
+	Exp.Max
+	Exp.CoordVal
+	Exp.CoordTranslate
+	Exp.CoordRotate
+	Exp.CoordMirrorX
+	Exp.CoordMirrorY
+}>{left:
+	Exp.Repeat
+	Signal.Zip
+
+}>{left:
+	Exp.Append
+	Signal.ConcurSig
+}>{right:
+	Exp.Connect
+}>{left:
+	Statement.IfThenElse
+	Statement.WhileLoop
+	Statement.ForLoop
+	
+}>{left:
+	Statement.VarAssign
+	Statement.ArrayAssign
+	Statement.SignalAssign
+	Statement.AltSignalAssign
+	Statement.SingleSignalAssign
+	Statement.AltSingleSignalAssign
+	Statement.CompAttrAssign
+	Statement.SingleCompAttrAssign
+}

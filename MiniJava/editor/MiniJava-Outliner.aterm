@@ -1,0 +1,8 @@
+Module(
+  "editor/MiniJava-Outliner"
+, [ Imports(
+      [Import("include/MiniJava"), Import("lib/runtime/editor/outline-library"), Import("lib/runtime/editor/origins"), Import("editor/MiniJava-Outliner.generated")]
+    )
+  , Rules([SDefNoArgs("to-outline-label", Fail())])
+  ]
+)

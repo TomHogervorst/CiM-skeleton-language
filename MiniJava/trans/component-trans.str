@@ -1,0 +1,55 @@
+module component-trans
+
+imports
+  
+  src-gen/signatures/Entity-sig
+  helper
+  exp-trans
+  signal-trans
+  statement-trans
+  
+rules
+			
+	get-arg-decls:
+		[] -> res*
+		with res* := []
+
+	component-get-sizes(|varArray*):
+		Entity(_, insigs*, outsigs*, _, _) -> (inres, outres)
+		with
+			inres := <map(sigarg-getsize(|varArray*)); foldr(!0, add)> insigs*;
+			outres := <map(sigarg-getsize(|varArray*)); foldr(!0, add)> outsigs*
+
+		
+	sigarg-getsize(|varArray*):
+		SigArg(name, exp) -> <exp-to-int(|"error", varArray*, [])> exp	
+	
+	get-num-vars:
+		Main(_, _,argdecls*, statements*) -> <length> res
+		with
+			vardecls* := <statements-get-vardecls> statements*;
+			allvars* := [argdecls*, vardecls*];
+			res := <length> allvars*
+		
+	get-num-vars:
+		Entity(_, _, _, argdecls*, statements*) -> res
+		with
+			vardecls* := <statements-get-vardecls> statements*;
+			allvars* := [argdecls*, vardecls*];
+			res := <length> allvars*
+			
+	get-signal-sizes:
+		Entity(_, _, _, argdecls*, statements*) -> res*
+		with
+			signals* := <statements-get-sigdecls> statements*;
+			res* := <map(signal-decl-get-size)> signals*
+			
+	get-num-sigs:
+		Entity(_, insigs*, outsigs*, _, statements*) -> res
+		with
+			sigs* := <statements-get-sigdecls> statements*;
+			inoutsigs* := [insigs*, outsigs*];
+			totalsigs* := [inoutsigs*, sigs*];
+			res := <length> totalsigs*
+
+	

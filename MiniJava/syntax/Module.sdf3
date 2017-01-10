@@ -1,0 +1,20 @@
+module Module
+
+imports
+  Common
+  IntPair
+  Block
+  
+sorts
+  Module
+  
+context-free start-symbols
+  Module  
+  
+template options
+  tokenize: "()[]"
+  keyword -/- [a-zA-Z]
+
+context-free syntax
+  //              LibModId, time,floorplan,  source
+  Module.Module = <(<INT>, <INT>, <Block>, <IntPair*>)>

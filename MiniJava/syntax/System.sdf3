@@ -1,0 +1,23 @@
+module System
+
+imports
+  Common
+  IntPair
+  Block
+  Module
+  
+sorts
+  System
+   
+context-free start-symbols
+  System
+  
+template options 
+  tokenize: "()"
+  tokenize: "[]"
+
+context-free syntax
+  Input.Input = <[<IntPair+>]>
+  //                 modules           inputs,     outputs,     size,   latency,energy
+  System.System = <(<{Module "\n"}*>, <Input*>, <IntPair*>, <IntPair>, <INT>, <INT>)>
+  
