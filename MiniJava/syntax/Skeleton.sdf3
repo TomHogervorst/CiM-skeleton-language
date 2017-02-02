@@ -16,9 +16,7 @@ context-free syntax
 	ModArg.ModArg = <\<<ModInt> | <ModInt>\><ID>[<Exp>]>
 	ModArg.SingleModArg = <\<<ModInt> | <ModInt>\><ID>>
 
-	Skeleton.Skeleton = <skeleton <CO> \<<ModArg> | <ModArg>\>(<{ArgDecl ", "}*>){
-		<{Statement "\n"}*>
-	}>
+	Skeleton.Skeleton = <skeleton <CO> \<<ModArg> | <ModArg>\>(<{ArgDecl ", "}*>)<Statement>>
 	
 	SkelIR.SkelInport = <<INT>\<<INT>|_\>>
 	SkelIR.SkelOutport = <<INT>\<_|<INT>\>>

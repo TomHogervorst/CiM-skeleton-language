@@ -29,33 +29,33 @@ rules
 		Dereference the program and its components
 	*/
 	
-	unroll-and-dereference(|ast): Program(_, _, main, _, skels*) -> resTuple
+	unroll-and-dereference(|ast): Program(_, main, _, skels*) -> resTuple
 	with
 		(compTuples*, statements*) := <unroll-and-dereference(|ast, [])> main;
 		resTuple := (compTuples*, skels*, statements*)
 		
 	unroll-and-dereference(|ast, argArray*):
-		Main(insigs*, outsigs*, argdecls*, statements*) -> (resCompTuples*, resSigArray*)
+		Main(insigs*, outsigs*, argdecls*, statement) -> (resCompTuples*, resSigArray*)
 		with
-			varsLength := <statements-get-vardecls; length> statements*;
-			signalsLength := <statements-get-sigdecls; length> statements*;
+			varsLength := <statement-get-vardecls; length> statement;
+			signalsLength := <statement-get-sigdecls; length> statement;
 			varArray* := <copy> (varsLength, 0);
 			totalArray* := [argArray*, varArray*];
 			inoutsigs* := [insigs*, outsigs*];
 			sigArray* := <copy>(<add> (<length> inoutsigs*, signalsLength), Nop());
-			(emptyModArray*, newVarArray*, newSigArray*, resCompTuples*) := <deref-statements(|ast, [], totalArray*, sigArray*, [])> statements*;
+			(emptyModArray*, newVarArray*, newSigArray*, resCompTuples*) := <deref-statement(|ast, [], totalArray*, sigArray*, [])> statement;
 			resSigArray* := <set-in-out-sigs(|argArray*); delete-unused-sigs>(insigs*, outsigs*, newSigArray*)
 			
 	unroll-and-dereference(|ast, argArray*, compTuples*):
-		Entity(name, insigs*, outsigs*, _, statements*) -> (resCompTuples*, resSigArray*)
+		Entity(name, insigs*, outsigs*, _, statement) -> (resCompTuples*, resSigArray*)
 		with
-			varsLength := <statements-get-vardecls; length> statements*;
-			signalsLength := <statements-get-sigdecls; length> statements*;
+			varsLength := <statement-get-vardecls; length> statement;
+			signalsLength := <statement-get-sigdecls; length> statement;
 			varArray* := <copy>(varsLength, 0);
 			totalArray* := [argArray*, varArray*];
 			inoutsigs* := [insigs*, outsigs*];
 			sigArray* := <copy>(<add>(<length> inoutsigs*, signalsLength), Nop());
-			(emptyModArray*, newArray*, newSigArray*, resCompTuples*) := <deref-statements(|ast, [], totalArray*, sigArray*, compTuples*)> statements*;
+			(emptyModArray*, newArray*, newSigArray*, resCompTuples*) := <deref-statement(|ast, [], totalArray*, sigArray*, compTuples*)> statement;
 			resSigArray* := <set-in-out-sigs(|argArray*); delete-unused-sigs>(insigs*, outsigs*, newSigArray*)
 	
 	set-in-out-sigs(|varArray*):
@@ -99,7 +99,7 @@ rules
 			end
 	
 	replace-assign(|index, addLength):
-		SignalAssign(index, array, signal, conskel) -> res
+		SignalAssign(signal, conskel, index, array) -> res
 		with
 			res := OutputAssign(<zip(add)>(array, <copy>( <length> array, addLength)), signal, conskel)
 			
@@ -107,7 +107,7 @@ rules
 		SigRef(num, array) -> SigRef(<subt>(num, subtNum), array)
 		
 	subt-sigref(|subtNum):
-		SignalAssign(num, array, sig, conskel) -> SignalAssign(<subt>(num, subtNum), array, sig, conskel)
+		SignalAssign(sig, conskel, num, array) -> SignalAssign(sig, conskel, <subt>(num, subtNum), array)
 		
 	delete-unused-sigs:
 		systems* -> resSystems*
@@ -152,6 +152,11 @@ rules
 	*/
 	
 	deref-statement(|ast, modArray*, varArray*, sigArray*, compTuples*):
+		Accolades(statements*) -> (resModArray*, resVarArray*, resSigArray*, resCompTuples*)
+		with
+			(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <deref-statements(|ast, modArray*, varArray*, sigArray*, compTuples*)> statements*
+	
+	deref-statement(|ast, modArray*, varArray*, sigArray*, compTuples*):
 		VarDeclInit(type, name, exp) -> (modArray*, resVarArray*, sigArray*, newCompTuples*)
 		with
 			(newCompTuples*, value) := <deref-by-type(|ast, modArray*, varArray*, compTuples*)>(type, exp);
@@ -183,21 +188,21 @@ rules
 			end
 			
 	deref-statement(|ast, modArray*, varArray*, sigArray*, compTuples*):
-		SignalAssign(name, array, signal, None()) -> (modArray*, varArray*, resSigArray*, compTuples*)
+		SignalAssign(signal, None(), name, array) -> (modArray*, varArray*, resSigArray*, compTuples*)
 		with
 			signalres := <deref-signal(|varArray*)> signal;
 			(unusedCompTuples*, intArray) := <array-to-list(|ast, [], varArray*, [], Integer())> array;
 			num := <get-sig-index> name;
 			currentSig := <index(|num)> sigArray*;
 			if <?Nop()> currentSig then
-				newSig := SignalAssign(num, <map(add(|1))>intArray, signalres, None())
+				newSig := SignalAssign(signalres, None(), num, <map(add(|1))>intArray)
 			else
 				newSig := <add-to-signal> (currentSig, <map(add(|1))>intArray, signalres, None())
 			end;
 			resSigArray* := <set-index> (<subt>(num, 1), newSig, sigArray*)
 				
 	deref-statement(|ast, modArray*, varArray*, sigArray*, compTuples*):
-		SignalAssign(name, array, signal, Some(ConSkel(conOp, skel))) -> (modArray*, varArray*, resSigArray*, resCompTuples*)
+		SignalAssign(signal, Some(ConSkel(skel)), name, array) -> (modArray*, varArray*, resSigArray*, resCompTuples*)
 		with
 			signalres := <deref-signal(|varArray*)> signal;
 			(unusedCompTuples*, intArray) := <array-to-list(|ast, [], varArray*, [], Integer())> array;
@@ -205,24 +210,24 @@ rules
 			num := <get-sig-index> name;
 			currentSig := <index(|num)> sigArray*;
 			if <?Nop()> currentSig then
-				newSig := SignalAssign(num, <map(inc)> intArray, signalres, Some(ConSkel(conOp, skelRes)))
+				newSig := SignalAssign(signalres, Some(ConSkel(skelRes)), num, <map(inc)> intArray)
 			else
-				newSig := <add-to-signal> (currentSig, <map(inc)> intArray, signalres, Some(ConSkel(conOp, skelRes)))
+				newSig := <add-to-signal> (currentSig, <map(inc)> intArray, signalres, Some(ConSkel(skelRes)))
 			end;
 			resSigArray* := <set-index> (<subt>(num, 1), newSig, sigArray*)
 	
 	deref-statement(|ast, modArray*, varArray*, sigArray*, compTuples*):
-		IfThenElse(value, statements1*, statements2*) -> (resModArray*, resVarArray*, resSigArray*, resCompTuples*)
+		IfThenElse(value, statement1, statement2) -> (resModArray*, resVarArray*, resSigArray*, resCompTuples*)
 		with
 			(newCompTuples*, condValue) := <deref-by-type(|ast, modArray*, varArray*, compTuples*)> (Boolean(), value);
 			if <eq> (condValue, 0) then
-				(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <deref-statements(|ast, modArray*, varArray*, sigArray*, newCompTuples*)> statements2*
+				(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <deref-statement(|ast, modArray*, varArray*, sigArray*, newCompTuples*)> statement2
 			else
-				(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <deref-statements(|ast, modArray*, varArray*, sigArray*, newCompTuples*)> statements1*
+				(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <deref-statement(|ast, modArray*, varArray*, sigArray*, newCompTuples*)> statement1
 			end
 			
 	deref-statement(|ast, modArray*, varArray*, sigArray*, compTuples*):
-		WhileLoop(value, statements*) -> (resModArray*, resVarArray*, resSigArray*, resCompTuples*)
+		WhileLoop(value, statement) -> (resModArray*, resVarArray*, resSigArray*, resCompTuples*)
 		with
 			(newCompTuples*, condValue) := <deref-by-type(|ast, modArray*, varArray*, compTuples*)> (Boolean(), value);
 			if <eq>(condValue, 0) then
@@ -231,17 +236,17 @@ rules
 				resCompTuples* := newCompTuples*;
 				resModArray* := modArray*
 			else
-				(newModArray*, newVarArray*, newSigArray*, newerCompTuples*) := <deref-statements(|ast, modArray*, varArray*, sigArray*, newCompTuples*)> statements*;
-				(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <deref-statement(|ast, newModArray*, newVarArray*, newSigArray*, newerCompTuples*)> WhileLoop(value, statements*)
+				(newModArray*, newVarArray*, newSigArray*, newerCompTuples*) := <deref-statement(|ast, modArray*, varArray*, sigArray*, newCompTuples*)> statement;
+				(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <deref-statement(|ast, newModArray*, newVarArray*, newSigArray*, newerCompTuples*)> WhileLoop(value, statement)
 			end
 			
 	deref-statement(|ast, modArray*, varArray*, sigArray*, compTuples*):
-		ForLoop(name, array*, statements*) -> (resModArray*, resVarArray*, resSigArray*, resCompTuples*)
+		ForLoop(name, array*, statement) -> (resModArray*, resVarArray*, resSigArray*, resCompTuples*)
 		with
 			arrayType := <get-type; array-get-type> array*;
 			(newCompTuples*, derefedArray*) := <array-to-list(|ast, modArray*, varArray*, compTuples*, arrayType)> array*;
 			varIndex := <get-var-index> name;
-			(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <loop-over-array(|ast, varIndex, statements*, modArray*, varArray*, sigArray*, newCompTuples*)> derefedArray*
+			(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <loop-over-array(|ast, varIndex, statement, modArray*, varArray*, sigArray*, newCompTuples*)> derefedArray*
 	
 	deref-statement(|ast, modArray*, varArray*, sigArray*, compTuples*):
 		SignalDecl(name, size) -> (modArray*, varArray*, sigArray*, compTuples*)
@@ -257,12 +262,12 @@ rules
 			newMod := [currentMod*, newAttr*];
 			resModArray* := <set-index>(<subt>(modIndex, 1), newMod, modArray*)			
 			
-	loop-over-array(|ast, varIndex, statements*, modArray*, varArray*, sigArray*, compTuples*):
+	loop-over-array(|ast, varIndex, statement, modArray*, varArray*, sigArray*, compTuples*):
 		[newVarValue | array*] -> (resModArray*, resVarArray*, resSigArray*, resCompTuples*)
 		with
 			newVarArray* := <set-index>(<subt>(varIndex, 1), newVarValue, varArray*);
-			(newModArray*, newerVarArray*, newSigArray, newCompTuples*) := <deref-statements(|ast, modArray*, newVarArray*, sigArray*, compTuples*)> statements*;
-			(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <loop-over-array(|ast, varIndex, statements*, newModArray*, newerVarArray*, newSigArray, newCompTuples*)> array*
+			(newModArray*, newerVarArray*, newSigArray, newCompTuples*) := <deref-statement(|ast, modArray*, newVarArray*, sigArray*, compTuples*)> statement;
+			(resModArray*, resVarArray*, resSigArray*, resCompTuples*) := <loop-over-array(|ast, varIndex, statement, newModArray*, newerVarArray*, newSigArray, newCompTuples*)> array*
 			
 	loop-over-array(|ast, varIndex, statements*, modArray*, varArray*, sigArray*, compTuples*):
 		[] -> (modArray*, varArray*, sigArray*, compTuples*)
@@ -313,13 +318,6 @@ rules
 			res* :=<merge>(elem, elems*)
 			
 	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
-		AppendArray(array1, array2) -> (resCompTuples*, res*)
-		with
-			(newCompTuples*, elem*) := <deref-by-type(|ast, modArray*, varArray*, compTuples*)>(Array(type), array1);
-			(resCompTuples*, elems*) := <deref-by-type(|ast, modArray*, varArray*, newCompTuples*)> (Array(type), array2);
-			res* := [elem*, elems*]
-			
-	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
 		Interval(begin, interval, end) -> (compTuples*, res*)
 		with
 			intBegin := <exp-to-int(|"Error",varArray*, [])> begin;
@@ -363,9 +361,10 @@ rules
 	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
 		Map(varId, exp, array*) -> (resCompTuples*, res*)
 		with
-			(newCompTuples*, derefedArray*) := <array-to-list(|ast, modArray*, varArray*, compTuples*, type)> array*;
+			mapType := <get-type> varId;
+			(newCompTuples*, derefedArray*) := <array-to-list(|ast, modArray*, varArray*, compTuples*,  mapType)> array*;
 			(resCompTuples*, res*) := <map-to-list(|ast, modArray*, varArray*, newCompTuples*, type)>(varId, exp, derefedArray*)
-	
+
 	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
 		VarRef(name) -> (compTuples*, res*)
 		with
@@ -374,39 +373,18 @@ rules
 	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
 		Repeat(num, exp) -> (resCompTuples*, res*)
 		with
-			(resCompTuples*, elem) := <deref-by-type(|ast, modArray*, varArray*, compTuples*)>(type, exp);
+			<debug> num;
+			(resCompTuples*, elem) := <debug; deref-by-type(|ast, modArray*, varArray*, compTuples*); debug>(Array(type), exp);
 			intSize := <exp-to-int(|"Error",varArray*, [])> num;
-			res* := <copy>(intSize, elem)
-			
-	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
-		RepeatArray(num, exp) -> (resCompTuples*, res*)
-		with
-			(resCompTuples*, elem*) := <array-to-list(|ast, modArray*, varArray*, compTuples*, type)>exp;
-			intSize := <exp-to-int(|"Error",varArray*, [])> num;
-			totalres* := <copy>(intSize, elem*);
-			emptyArray := [];
-			res* := <concat>[totalres*, emptyArray]
-			
-	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
-		ArrayLoop(name, [elem | array*], exp) -> (resCompTuples*, res*)
-		with
-			index := <get-var-index> name;
-			newVarArray* := <set-index>(<subt>(index, 1), elem, varArray*);
-			(newCompTuples*, expRes) := <deref-by-type(|ast, modArray*, newVarArray*, compTuples*)> (type, exp);
-			(resCompTuples*, restRes*) := <array-to-list(|ast, modArray*, newVarArray*, newCompTuples*, type)> ArrayLoop(name, array*, exp);
-			res* := [expRes, restRes*]
-			
-	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
-		ArrayLoop(name, [], exp) -> (compTuples*, res*)
-		with
-			res* := []
-			
-	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
-		LogsOf2(num) -> (compTuples*, res*)
-		with
-			intValue := <exp-to-int(|"Error",varArray*, [])> num;
-			res* := <build-int-array(eq, div|2, 0)>(intValue, 1)
-			
+			tempRes* := <copy; debug>(intSize, elem);
+			if <is-list> elem then
+				emptyArray := [];
+				res* := <concat; debug>[tempRes*, emptyArray]
+			else
+				res* := tempRes*
+			end
+
+				
 	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
 		FoldRight(op, array*) -> <fold-to-value(|ast, modArray*, varArray*, compTuples*)> FoldRight(op, array*)
 	
@@ -424,7 +402,7 @@ rules
 	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
 		elem -> (newCompTuples*, res)
 		with
-			(newCompTuples*, value) := <deref-by-type(|ast, modArray*, varArray*, compTuples*)>(type, elem);
+			(newCompTuples*, value) := <debug; deref-by-type(|ast, modArray*, varArray*, compTuples*)>(type, elem);
 			res := [value]
 	
 	map-to-list(|ast, modArray*, varArray*, compTuples*, type):
@@ -532,31 +510,6 @@ rules
 			conRes := <con-op-get-index> conOp;
 			res := Connect(res1, conRes, res2)
 		
-	deref-skel(|ast, varArray*, compTuples*): 
-		SkelLoop(connectOp, indexVar, array, skeleton) -> (resCompTuples*, res)
-		with
-			(unusedCompTuples*, newArray*) := <array-to-list(|ast, [], varArray*, [], Integer())> array;
-			length := <length> newArray*;
-			if <leq> (length, 0)
-			then res := Nop();
-				resCompTuples* := compTuples*
-			else
-				index := <get-var-index> indexVar;
-				num := <index(|1)> newArray*;
-				realIndex := <subt>(index, 1);
-				newVarArray* := <set-index> (realIndex, num, varArray*);
-				(newCompTuples*, thisRes) := <deref-skel(|ast, newVarArray*, compTuples*)> skeleton;
-				if <eq> (length, 1)
-				then
-					res := thisRes;
-					resCompTuples* := newCompTuples*
-				else 
-					newerArray* := <drop(|1)> newArray*;
-					(resCompTuples*, thatRes) := <deref-skel(|ast, newVarArray*, newCompTuples*)> SkelLoop(connectOp, indexVar, newerArray*, skeleton);
-					res := Connect(thisRes, connectOp, thatRes)
-				end
-			end
-		
 	deref-skel(|ast, varArray*, compTuples*):
 		FoldRight(op, array*) -> <fold-to-value(|ast, [], varArray*, compTuples*)> FoldRight(op, array*)
 	
@@ -618,7 +571,7 @@ rules
 			end
 	
 	add-to-signal:
-		(OutputAssign(inArray, inSig, Some(ConSkel(inOp, inSkel))), array, signal, Some(ConSkel(conOp, skel))) -> OutputAssign(newInArray, newInSig, Some(ConSkel(conOp, newSkel)))
+		(OutputAssign(inArray, inSig, Some(ConSkel(inSkel))), array, signal, Some(ConSkel(skel))) -> OutputAssign(newInArray, newInSig, Some(ConSkel(newSkel)))
 		with
 			if <eq>(<isect;length>(inArray, array), 0) then
 				newInArray := <conc>(inArray, array);
@@ -634,7 +587,7 @@ rules
 			end
 			
 	add-to-signal:
-		(SignalAssign(num, inArray, inSig, None()), array, signal, None()) -> SignalAssign(num, newInArray, newInSig, Some(ConSkel(conOp, skel)))
+		(SignalAssign(inSig, None(), num, inArray), array, signal, None()) -> SignalAssign(newInSig, Some(ConSkel(skel)), num, newInArray)
 		with
 			if <eq>(<isect;length>(inArray, array), 0) then
 				newInArray := <conc>(inArray, array);
@@ -650,7 +603,7 @@ rules
 			end
 			
 	add-to-signal:
-		(SignalAssign(num, inArray, inSig, None()), array, signal, Some(ConSkel(conOp, skel))) -> SignalAssign(num, newInArray, newInSig, Some(ConSkel(conOp, newSkel)))
+		(SignalAssign(inSig, None(), num, inArray), array, signal, Some(ConSkel(skel))) -> SignalAssign(newInSig, Some(ConSkel(newSkel)), num, newInArray)
 		with
 			if <eq>(<isect;length>(inArray, array), 0) then
 				newInArray := <conc>(inArray, array);
@@ -667,7 +620,7 @@ rules
 			end
 			
 	add-to-signal:
-		(SignalAssign(num, inArray, inSig, Some(ConSkel(conOp, inSkel))), array, signal, None()) -> SignalAssign(num, newInArray, newInSig, Some(ConSkel(conOp, newSkel)))
+		(SignalAssign(inSig, Some(ConSkel(inSkel)), num, inArray), array, signal, None()) -> SignalAssign(newInSig, Some(ConSkel(newSkel)), num, newInArray)
 		with
 			if <eq>(<isect;length>(inArray, array), 0) then
 				newInArray := <conc>(inArray, array);
@@ -684,7 +637,7 @@ rules
 			end
 			
 	add-to-signal:
-		(SignalAssign(num,inArray, inSig, Some(ConSkel(inConOp, inSkel))), array, signal, Some(ConSkel(conOp, skel))) -> SignalAssign(num,newInArray,  newInSig, Some(ConSkel(conOp, newSkel)))
+		(SignalAssign(inSig, Some(ConSkel(inSkel)), num,inArray), array, signal, Some(ConSkel(skel))) -> SignalAssign( newInSig, Some(ConSkel(newSkel)), num, newInArray)
 		with
 			if <eq>(<isect;length>(inArray, array), 0) then
 				newInArray := <conc>(inArray, array);

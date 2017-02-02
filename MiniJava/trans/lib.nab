@@ -35,7 +35,7 @@ binding rules
 
   LibMod(name, _, _, _, _, _): defines Library name of type Skeleton()
   
-  Program(_, _, _, _, _): scopes Library, Component, Skeleton
+  Program(_, _, _, _): scopes Library, Component, Skeleton
   
   Skeleton(name, _,  _, _, _): defines Skeleton name scopes Module, Variable
   
@@ -48,7 +48,7 @@ binding rules
   
   SignalDecl(name, size): defines Signal name
   SigArg(name, size): defines Signal name 
-  SignalAssign(name, _, _, _): refers to Signal name
+  SignalAssign(_, _, name, _): refers to Signal name
   SigRef(name, _): refers to Signal name
   
   ModRef(name, index): refers to Module name
@@ -67,11 +67,9 @@ binding rules
   Var(name): refers to Variable name
   ArrayAssign(name, _, _): refers to Variable name 
   VarRef(name) : refers to Variable name otherwise refers to Module name otherwise refers to Library name
-  SkelLoop(_, name, _, _): refers to Variable name
   
   ConnOp(name): refers to Skeleton name
   
-  ArrayLoop(name, _, _): refers to Variable name
   ConcurSigLoop(name, _, _): refers to Variable name
   Map(name, _, _): refers to Variable name
   ForLoop(name, _, _): refers to Variable name

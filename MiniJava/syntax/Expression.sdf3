@@ -31,8 +31,6 @@ context-free syntax
   Op.GreaterThan = <\>>
   Op.LessThan = <\<>
   Op.EqualTo = <==>
-  Op.GreaterOrEqual = <=\>>
-  Op.LessOrEqual = <=\<>
   Op.And = <&&>
   Op.Or = <||>
   Op.ConOp = <<ConnectOp>>
@@ -76,8 +74,6 @@ context-free syntax
   Exp.GT = <<Exp> \> <Exp>> {left}
   Exp.LT = <<Exp> \< <Exp>> {left}
   Exp.EQ = <<Exp> == <Exp>> {left}
-  Exp.GEQ = <<Exp> =\> <Exp>> {left}
-  Exp.LEQ = <<Exp> =\< <Exp>> {left}
   
   /*Bool to Bool*/
   Exp.AND = <<Exp> && <Exp>> {left}
@@ -89,19 +85,13 @@ context-free syntax
   Exp.Range = <<Exp> : <Exp>> {left}
   Exp.Interval = <<Exp> : <Exp> : <Exp>> {left, prefer}
   Exp.Reverse = <rev(<Exp>)> {non-assoc}
-  Exp.LogsOf2 = <logsof2(<Exp>)> {non-assoc}
-  Exp.ArrayLoop = <loop\<++\>(<ID> = <Exp>; <Exp>)>{left}
   Exp.FoldRight = <foldr\<<Op>\>(<Exp>)>{left}
-  Exp.FoldRight2 = <foldr\<<Op>\>(<Exp> <Exp>)> {left}
   Exp.FoldLeft = <foldl\<<Op>\>(<Exp>)>{left}
-  Exp.FoldLeft2 = <foldl\<<Op>\>(<Exp>, <Exp>)> {left}
   Exp.Map = <map\<<ID> = <Exp>\>(<Exp>)>{left}
-  Exp.Repeat = <repeat[<Exp>](<Exp>)>{left}
-  Exp.RepeatArray = <array-repeat[<Exp>](<Exp>)>{left}
+  Exp.Repeat = <copy[<Exp>](<Exp>)>{left}
    
   /*Array to Array*/
   Exp.Append = <<Exp> ++ <Exp>> {left}
-  Exp.AppendArray = <<Exp> +++ <Exp>> {left}
   Exp.Increment = <incr(<Exp>, <Exp>)>{left}
   Exp.ShiftRight = <shiftr(<Exp>, <Exp>)>{left}
   Exp.ShiftLeft = <shiftl(<Exp>, <Exp>)>{left}
@@ -116,7 +106,6 @@ context-free syntax
   Exp.Connect = <<Exp> <ConnectOp> <Exp>> {right}
   Exp.CompRef= <<ID>(<{Exp ", "}*>)>
   Exp.LibModNum  = <#<INT>>
-  Exp.SkelLoop = <loop\<<ConnectOp>\>(<ID> = <Exp>; <Exp>)>
   Exp.Nop = <NOP>
   
   /*Component expressions*/

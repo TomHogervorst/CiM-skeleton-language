@@ -20,27 +20,7 @@ imports
   statement-trans
 
 rules
-	
-  get-mapping-option:
-  	Program(options*, _, _, _, _) -> res
-  	with
-  		mappingOptions := <map(keep-if(is-mapping)); concat> options*;
-  		if <gt> (<length> mappingOptions, 0) then
-  			res := <index(|1); option-get-value> mappingOptions
-  		else
-  			res := 1
-  		end
-  		
-  get-routing-option:
-  	Program(options*, _, _, _, _) -> res
-  	with
-  		mappingOptions := <map(keep-if(is-routing)); concat> options*;
-  		if <gt> (<length> mappingOptions, 0) then
-  			res := <index(|1); option-get-value> mappingOptions
-  		else
-  			res := 1
-  		end
-  		
+	  		
   keep-if(condition):
   	element -> res*
   	with
@@ -49,25 +29,9 @@ rules
   	else
   		res* := []
   	end
-  	
-  is-mapping:
-  	Option(Mapping(), exp) -> Option(Mapping(), exp)
-  	
-  is-mapping:
-  	notMapping -> <fail>
-  	
-  is-routing:
-  	Option(Routing(), exp) -> Option(Routing(), exp)
-  	
-  is-routing:
-  	notRouting -> <fail>
-  	
-  option-get-value:
-  	Option(name, exp) -> <exp-to-int(|"error", [], [])> exp
-  			
-  
+  	  
   get-libmod(|i):
-    Program(_, libmod*, _, _, _) -> lib
+    Program(libmod*, _, _, _) -> lib
     with
    	  if <eq> (i, 0)
    	  then lib := LibMod("NOP", IntPair("32","1"),"0", "0", [Block(IntPair("0", "0"), "0", "0")], [Block(IntPair("0", "1"), "0", "1")])
@@ -88,7 +52,7 @@ rules
        end
        
    get-libmod-input-port-y(|l, i):
-   	Program(_, libmod*, _, _, _) -> yLoc
+   	Program(libmod*, _, _, _) -> yLoc
    	with
    		if <eq> (l, 0) then
    			lib := LibMod("NOP", IntPair("32","1"),"0", "0", [Block(IntPair("0", "0"), "0", "0")], [Block(IntPair("0", "1"), "0", "1")])
@@ -108,7 +72,7 @@ rules
    		yLoc := <intpair-gety; string-to-int> bottomLeft
    		
    get-libmod-output-port-y(|l, i):
-   	Program(_, libmod*, _, _, _) -> yLoc
+   	Program(libmod*, _, _, _) -> yLoc
    	with
    		if <eq> (l, 0) then
    			lib := LibMod("NOP", IntPair("32","1"),"0", "0", [Block(IntPair("0", "0"), "0", "0")], [Block(IntPair("0", "1"), "0", "1")])
@@ -120,7 +84,7 @@ rules
    		yLoc := <intpair-gety; string-to-int> bottomLeft 
        
    get-component(|i):
-    Program(_, _, _, comps*, _) -> comp
+    Program(_, _, comps*, _) -> comp
     with
    	  len := <length> comps*
       ; if <geq> (len, i)
@@ -129,34 +93,34 @@ rules
        end
        
     get-main-sizes:
-    	Program(_, _, Main(insigs*, outsigs*, _, statements*), _, _) -> (inInt, outInt, signalSizes*)
+    	Program(_, Main(insigs*, outsigs*, _, statement), _, _) -> (inInt, outInt, signalSizes*)
     	with
     		inInt := <map(sigarg-getsize(|[])); foldr(!0, add)> insigs*;
     		outInt := <map(sigarg-getsize(|[])); foldr(!0, add)> outsigs*;
-    		signalSizes* := <statements-get-sigdecls; map(signal-decl-get-size)> statements*
+    		signalSizes* := <statement-get-sigdecls; map(signal-decl-get-size)> statement
     		
     get-main-signal-num:
-    	Program(_, _, Main(insigs*, outsigs*, _, statements*), _, _) -> signalSize
+    	Program(_, Main(insigs*, outsigs*, _, statement), _, _) -> signalSize
     	with
-    		signals* := <statements-get-sigdecls> statements*;
+    		signals* := <statement-get-sigdecls> statement;
     		inoutsigs* := [insigs*, outsigs*];
 			totalsigs* := [inoutsigs*, signals*];
     		signalSize := <length> totalsigs*
     		
     get-comp-in-out-nums(|index, varArray*):
-    	Program(_, _, _, comps*, _) -> inOutSizes
+    	Program(_, _, comps*, _) -> inOutSizes
     	with
     		comp := <index(|index)> comps*;
     		inOutSizes := <component-get-sizes(|varArray*)> comp
     		
     get-comp-signal-sizes(|index):
-    	Program(_, _, _, comps*, _) -> sigSizes*
+    	Program(_, _, comps*, _) -> sigSizes*
     	with
     		comp := <index(|index)> comps*;
     		sigSizes* := <get-signal-sizes> comp
     		
     get-comp-signal-num(|index):
-    	Program(_, _, _, comps*, _) -> signalSize
+    	Program(_, _, comps*, _) -> signalSize
     	with
     		comp := <index(|index)> comps*;
     		signalSize := <get-num-sigs> comp

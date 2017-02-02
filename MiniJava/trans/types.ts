@@ -39,8 +39,6 @@ type rules
   GreaterThan(): (Integer(), Boolean())
   LessThan(): (Integer(), Boolean())
   EqualTo(): (Integer(), Boolean())
-  GreaterOrEqual(): (Integer(), Boolean())
-  LessOrEqual(): (Integer(), Boolean())
   And(): (Boolean(), Boolean())
   Or(): (Boolean(), Boolean())
   ConOp(op): (Array(Skeleton()), Skeleton())
@@ -65,19 +63,6 @@ type rules
   	Array type rules
   */
   
-  ArrayLoop(var, array, exp): Array(ty)
-  where exp : ty
-  
-  ArrayLoop(var, array, exp):-
-  where array:ty
-  and ty == Array(Integer())
-  else error "Can only loop of array of integers" on array
-  
-  ArrayLoop(var, array, exp):-
-  where definition of var: ty
-  and ty == Integer()
-  else error "Cannot assign integer values to non-integer variable." on var
-  
   ManualDefinition([elem|list*]): Array(ty)
   where elem : ty
   
@@ -89,16 +74,7 @@ type rules
   and exp2: ty2
   and (ty1 == ty2 or ty1 == Array(ty2) or ty2 == Array(ty1))
   else error "Can only merge arrays of the same type" on exp2
-  
-  AppendArray(exp1, exp2): ty
-  where exp2: ty
-    
-  AppendArray(exp1, exp2):-
-  where exp1: ty1
-  and exp2: Array(ty2)
-  and ty1 == Array(ty2)
-  else error "Can only merge arrays of the same type" on exp2
-  
+ 
   Range(exp1, exp2): Array(Integer())
   
   Range(exp1, exp2):-
@@ -127,13 +103,6 @@ type rules
   where exp3 : ty
   and ty == Integer()
   else error "Can only create a range between two integer values." on exp3
-  
-  LogsOf2(exp): Array(Integer())
-  
-  LogsOf2(exp):-
-  where exp: ty
-  and ty == Integer()
-  else error "Can only create a array of logs of two from an integer." on exp
   
   Increment(exp1, exp2): Array(Integer())
   
@@ -187,36 +156,6 @@ type rules
   where exp: ty
   and ty == Integer()
   else error "Integer expected here." on exp
-  
-  RepeatArray(exp1, exp2): ety2
-  where exp2: ety2
-  
-  RepeatArray(exp, skel):-
-  where exp: ty
-  and ty == Integer()
-  else error "Integer expected here." on exp
-  
-  RepeatArray(exp, skel):-
-  where skel: ty
-  and (ty == Array(Integer()) or ty == Array(Boolean()) or ty == Array(Skeleton()))
-  else error "Cannot repeat arrays without array type." on skel
-  
-  SkelLoop(_, var, exp, body): Array(Skeleton())
-  
-  SkelLoop(_, var, exp, body):-
-  where body: ty
-    and (ty == Skeleton()or ty == Array(Skeleton()))
-  else error "Can only create a sequential loop with a(n array of) skeletons." on body
-
-  SkelLoop(_, var, exp, body):-
-  where exp: ty
-    and (ty == Array(Integer()) or ty == Integer())
-  else error "Can only create a sequential loop from an array." on exp
-  
-  SkelLoop(_, var, exp, body):-
-  where definition of var: ty
-    and ty == Integer()
-  else error "Cannot assign integer values to non-integer variable." on var
   
   Connect(skel1, conop, skel2): Array(Skeleton())
   
@@ -287,7 +226,7 @@ type rules
     and (ty == Array(Integer()) or ty == Integer())
   else error "Can only assign to (an array of) integer indices." on array
 
-  SignalAssign(_, exp, skel, _):- 
+  SignalAssign(skel, _, _, exp):- 
   where exp: ty
  	and (ty == Array(Integer()) or ty == Integer())
   else error "An array must be used to define a part of a signal." on exp

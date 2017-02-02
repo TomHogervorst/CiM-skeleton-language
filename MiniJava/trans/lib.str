@@ -394,13 +394,13 @@ rules
     ; fail
 
   nabl-scoping-site =
-    ?Program(_, _, _, _, _)
+    ?Program(_, _, _, _)
     ; nabl-scope(
       | [NablNsLibrary(), NablNsComponent(), NablNsSkeleton()]
       )
 
   nabl-get-scope =
-    ?Program(_, _, _, _, _)
+    ?Program(_, _, _, _)
     ; ![NablNsLibrary(), NablNsComponent(), NablNsSkeleton()]
 
   nabl-get-scope =
@@ -610,16 +610,18 @@ rules
     ; match(implicits__|[])
 
   nabl-get-name :
-    SignalAssign(name, _, _, _) -> name
+    SignalAssign(_, _, name, _) -> name
 
   nabl-name-apply(s) =
-    SignalAssign(s, id, id, id)
+    SignalAssign(id, id, s, id)
 
   nabl-use-site(|lang__, ctx__, uniques__, uris__, states__) =
-    ?SignalAssign(name, _, _, _)
+    ?SignalAssign(_, _, name, _)
     ; origin-track-forced(
         SignalAssign(
-          nabl-use(
+          id
+        , id
+        , nabl-use(
           | lang__
           , ctx__
           , uniques__
@@ -636,8 +638,6 @@ rules
                }>
             ]
           )
-        , id
-        , id
         , id
         )
       |
@@ -1154,40 +1154,6 @@ rules
       )
 
   nabl-get-name :
-    SkelLoop(_, name, _, _) -> name
-
-  nabl-name-apply(s) =
-    SkelLoop(id, s, id, id)
-
-  nabl-use-site(|lang__, ctx__, uniques__, uris__, states__) =
-    ?SkelLoop(_, name, _, _)
-    ; origin-track-forced(
-        SkelLoop(
-          id
-        , nabl-use(
-          | lang__
-          , ctx__
-          , uniques__
-          , uris__
-          , [ <{:
-                 id
-                 ; !UseCandidate(
-                      NablNsVariable()
-                    , []
-                    , Current()
-                    , True()
-                    , []
-                    )
-               }>
-            ]
-          )
-        , id
-        , id
-        )
-      |
-      )
-
-  nabl-get-name :
     ConnOp(name) -> name
 
   nabl-name-apply(s) =
@@ -1214,39 +1180,6 @@ rules
                }>
             ]
           )
-        )
-      |
-      )
-
-  nabl-get-name :
-    ArrayLoop(name, _, _) -> name
-
-  nabl-name-apply(s) =
-    ArrayLoop(s, id, id)
-
-  nabl-use-site(|lang__, ctx__, uniques__, uris__, states__) =
-    ?ArrayLoop(name, _, _)
-    ; origin-track-forced(
-        ArrayLoop(
-          nabl-use(
-          | lang__
-          , ctx__
-          , uniques__
-          , uris__
-          , [ <{:
-                 id
-                 ; !UseCandidate(
-                      NablNsVariable()
-                    , []
-                    , Current()
-                    , True()
-                    , []
-                    )
-               }>
-            ]
-          )
-        , id
-        , id
         )
       |
       )

@@ -32,7 +32,7 @@ imports
 rules //index related rules
 	
 	nabl-prop-site(|lang, ctx, uri*, state*, implicit*):
-		Program(_, libmods*, main, comps*, skels*) -> <fail>
+		Program(libmods*, main, comps*, skels*) -> <fail>
   where
  	<map-with-index(store-index(|ctx))> libmods*;
  	<store-indices(|ctx)> main;
@@ -42,10 +42,10 @@ rules //index related rules
  	<map-with-index(store-index(|ctx))> skels*
  	
 	 store-indices(|ctx):
-	 	Main(insigs*, outsigs*, argdecls*, statements*) -> res
+	 	Main(insigs*, outsigs*, argdecls*, statement) -> res
 	 	with
-	 		vardecls* := <statements-get-vardecls> statements*;
-	 		sigdecls* := <statements-get-sigdecls> statements*;
+	 		vardecls* := <statement-get-vardecls> statement;
+	 		sigdecls* := <statement-get-sigdecls> statement;
 	 		inoutsigs* := [insigs*, outsigs*];
 			totalsigs* := [inoutsigs*, sigdecls*];
 	 		allvars* := [argdecls*, vardecls*];
@@ -53,10 +53,10 @@ rules //index related rules
 	 		res := <map-with-index(store-index(|ctx))> allvars*
 	 
 	 store-indices(|ctx):
-	 	Entity(_, insigs*, outsigs*, argdecls*, statements*) -> result
+	 	Entity(_, insigs*, outsigs*, argdecls*, statement) -> result
 	 	with
-	 		vardecls* := <statements-get-vardecls> statements*;
-	 		sigdecls* := <statements-get-sigdecls> statements*;
+	 		vardecls* := <statement-get-vardecls> statement;
+	 		sigdecls* := <statement-get-sigdecls> statement;
 	 		inoutsigs* := [insigs*, outsigs*];
 			totalsigs* := [inoutsigs*, sigdecls*];
 	 		allvars* := [argdecls*, vardecls*];
@@ -64,10 +64,10 @@ rules //index related rules
 	 		result := <map-with-index(store-index(|ctx))> allvars*
 	 		
 	 store-indices(|ctx):
-	 	Skeleton(_, ins, outs, argDecls*, statements*) -> result
+	 	Skeleton(_, ins, outs, argDecls*, statement) -> result
 	 	with
 	 		<map-with-index(store-index(|ctx))> [ins, outs];
-	 		statementVarDecls* := <statements-get-vardecls> statements*;
+	 		statementVarDecls* := <statement-get-vardecls> statement;
 	 		totalVarDecls* := [argDecls*, statementVarDecls*];
 	 		result := <map-with-index(store-index(|ctx))> totalVarDecls*
 	 		

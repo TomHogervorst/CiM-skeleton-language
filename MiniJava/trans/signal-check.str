@@ -30,7 +30,7 @@ rules
     	VarAssign(_, _) -> 1
     	
     check-signals(|ast, insize, outsize, signalSizes*, tuples*):
-    	SignalAssign(num, array, signal, None()) -> res
+    	SignalAssign(signal, None(), num, array) -> res
     	with
     		thisSignalLength := <length> array;
     		thatSignalLength := <signal-get-length> signal;
@@ -51,7 +51,7 @@ rules
     		res := <mul>(tempRes, lengthRes)
     		
     check-signals(|ast, insize, outsize, signalSizes*, tuples*):
-    	SignalAssign(num, array, signal, Some(ConSkel(_, skel))) -> res
+    	SignalAssign(signal, Some(ConSkel(skel)), num, array) -> res
     	with
     		outputLength := <length> array;
     		skelInLength := <skeleton-get-input-length(|ast)> skel;
@@ -102,7 +102,7 @@ rules
     		res := <mul>(tempRes, lengthRes)
     		
     check-signals(|ast, insize, outsize, signalSizes*, tuples*):
-    	OutputAssign(array, signal, Some(ConSkel(_, skel))) -> res
+    	OutputAssign(array, signal, Some(ConSkel(skel))) -> res
     	with
     		outputLength := <length> array;
     		skelInLength := <skeleton-get-input-length(|ast)> skel;

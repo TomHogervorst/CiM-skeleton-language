@@ -17,7 +17,6 @@ sorts
 context-free start-symbols
   
   Program
-  Option
   MainEntity
   Entity
   Skeleton
@@ -31,12 +30,7 @@ template options
 
 context-free syntax
   
-  OptionName.Mapping = "MAPPING"
-  OptionName.Routing = "ROUTING"
-  Option.Option = <$DO <OptionName>: <Exp>>
-  
   Program.Program = <
-<{Option "\n"}*>
 <{LibMod "\n"}*;hide>
 
 <MainEntity>
@@ -101,7 +95,7 @@ context-free priorities
 	Statement.VarAssign
 	Statement.ArrayAssign
 	Statement.SignalAssign
-	Statement.AltSignalAssign
+	Statement.SignalAssign
 	Statement.SingleSignalAssign
 	Statement.AltSingleSignalAssign
 	Statement.CompAttrAssign

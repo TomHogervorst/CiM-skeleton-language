@@ -7,74 +7,86 @@ imports
 
 rules
 	
-	statements-get-vardecls:
-		statements* -> <map(keep-if(is-var-decl)); concat> statements*
-			
-	statements-get-sigdecls:
-		statements* -> <map(keep-if(is-sig-decl)); concat> statements*
-			
-	statements-get-entiy-assigns:
-		statements* ->  <map(keep-if(is-entity-assign)); concat> statements*
-			
-	statements-get-skel-assigns:
-		statements* -> <map(keep-if(is-skel-assign)); concat> statements*
-			
-	is-var-decl:
+	statement-get-vardecls:
+		Accolades(statements*) -> <map(keep-if(statement-is-var-decl)); concat> statements*
+		
+	statement-get-vardecls: 
+		statement -> <keep-if(statement-is-var-decl)> statement
+		
+	statement-get-sigdecls:
+		Accolades(statements*) -> <map(keep-if(statement-is-sig-decl)); concat> statements*
+		
+	statement-get-sigdecls: 
+		statement -> <keep-if(statement-is-sig-decl)> statement
+		
+	statement-get-entity-assigns:
+		Accolades(statements*) -> <map(keep-if(statement-is-entity-assign)); concat> statements*
+		
+	statement-get-entity-assigns: 
+		statement -> <keep-if(statement-is-entity-assign)> statement
+	
+	statement-get-skel-assigns:
+		Accolades(statements*) -> <map(keep-if(statement-is-skel-assign)); concat> statements*
+		
+	statement-get-skel-assigns: 
+		statement -> <keep-if(statement-is-skel-assign)> statement
+	
+	statement-is-var-decl:
 		VarDecl(_, _) -> 1
 		
-	is-var-decl:
+	statement-is-var-decl:
 		VarDeclInit(_, _, _) -> 1
 		
-	is-var-decl:
+	statement-is-var-decl:
 		otherStatement -> <fail>
 		
-	is-sig-decl:
+	statement-is-sig-decl:
 		SignalDecl(_, _) -> 1
 	
-	is-sig-decl:
+	statement-is-sig-decl:
 		otherStatement -> <fail>
 	
-	is-entity-assign:
+	statement-is-entity-assign:
 		VarAssign(_, _) -> 1
 		
-	is-entity-assign:
+	statement-is-entity-assign:
 		ArrayAssign(_, _, _) -> 1	
 		
-	is-entity-assign:
+	statement-is-entity-assign:
 		SignalAssign(_, _, _, _) -> 1
 		
-	is-entity-assign:
-		IfThenElse(_, statements1*, statements2*) -> <map(is-entity-assign)>[statements1*, statements2*]
+	statement-is-entity-assign:
+		IfThenElse(_, statements1*, statements2*) -> <map(statement-is-entity-assign)>[statements1*, statements2*]
 		
-	is-entity-assign:
-		WhileLoop(_, statements*) -> <map(is-entity-assign)> statements*
+	statement-is-entity-assign:
+		WhileLoop(_, statements*) -> <map(statement-is-entity-assign)> statements*
 		
-	is-entity-assign:
-		ForLoop(_, _, statements*) -> <map(is-entity-assign)> statements*
+	statement-is-entity-assign:
+		ForLoop(_, _, statements*) -> <map(statement-is-entity-assign)> statements*
 	
-	is-entity-assign:
+	statement-is-entity-assign:
 		otherStatement -> <fail>
 		
-	is-skel-assign:
+	statement-is-skel-assign:
 		VarAssign(_, _) -> 1
 		
-	is-skel-assign:
+	statement-is-skel-assign:
 		ArrayAssign(_, _, _) -> 1
 		
-	is-skel-assign:
-		IfThenElse(_, statements1*, statements2*) -> <map(is-skel-assign)>[statements1*, statements2*]
+	statement-is-skel-assign:
+		IfThenElse(_, statements1*, statements2*) -> <map(statement-is-skel-assign)>[statements1*, statements2*]
 		
-	is-skel-assign:
-		WhileLoop(_, statements*) -> <map(is-skel-assign)> statements*
+	statement-is-skel-assign:
+		WhileLoop(_, statements*) -> <map(statement-is-skel-assign)> statements*
 		
-	is-skel-assign:
-		ForLoop(_, _, statements*) -> <map(is-skel-assign)> statements*
+	statement-is-skel-assign:
+		ForLoop(_, _, statements*) -> <map(statement-is-skel-assign)> statements*
 		
-	is-skel-assign:
+	statement-is-skel-assign:
 		CompAttrAssign(_, _, _, _) -> 1
 		
-	is-skel-assign:
+	statement-is-skel-assign:
 		SingleCompAttrAssign(_, _, _) -> 1
 		
-	is-skel-assign:
+	statement-is-skel-assign:
 		otherStatement -> <fail>

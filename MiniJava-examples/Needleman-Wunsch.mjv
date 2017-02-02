@@ -13,11 +13,11 @@ LibMod(NW, (1022, 429), 441, 1112, ((0, 0), 90, 1) ((0, 138), 90, 1) ((0, 0), 0,
 component main<in[29] | out[20]>(){ // inputs: 5 + (m-1) * 3 + (n-1) * 3 outputs: 4 + (m-1)*2 + (n-1)*2
 	int n = 5;
 	int m = 5;
-	in[0:29] => foldr<*_Y_*>(repeat[m](foldr<*_X_*>(repeat[n](NW_block())))) => out[0:20];
+	in[0:29] => foldr<*_Y_*>(copy[m](foldr<*_X_*>(copy[n](NW_block())))) => out[0:20];
 }
 
 component NW_block<in[5] | out[4]>(){
-	in[0:5] => repeat[5](NOP) *_B_* {NOP, NOP, (({LUT, NOP, {gap, gap} *_I_* GO} *_I_* {add, NOP} *_I_* GO) *_O_* {NOP, NOP})}  => out[0:4];
+	in[0:5] => copy[5](NOP) *_B_* {NOP, NOP, (({LUT, NOP, {gap, gap} *_I_* GO} *_I_* {add, NOP} *_I_* GO) *_O_* {NOP, NOP})}  => out[0:4];
 }
 
 skeleton *_B_* <<_ | _>us[5] | <_ | _>ds[3]>(){
@@ -60,7 +60,6 @@ skeleton *_B_* <<_ | _>us[5] | <_ | _>ds[3]>(){
 	
 	for i = 0:3 do
 		ds[i].time = us[0].time;
-	end;
 }
 
 skeleton *_O_* <<_ | _>us[1] | <_ | _>ds[2]>(){
@@ -93,11 +92,11 @@ skeleton *_Y_* <<_ | n>us[1] | <_ | _>ds[1]>(int n){
 	int mod_num = (n-2)/2;
 	ds[0].inport((mod_num-1)*3+3) = us[0].outport(1);
 	ds[0].inport((mod_num-1)*3+4) = us[0].outport(2);
-	for i = 0 : mod_num - 1 do
+	for i = 0 : mod_num - 1 do {
 		ds[0].inport(i*3+3) = us[0].outport(n-2*i-2);
 		ds[0].inport(i*3+4) = us[0].outport(n-2*i-1);
 		ds[0].inport(i*3+5) = us[0].outport(n-2*i-1);
-	end;
+	}
 	ds[0].rot = us[0].rot;
 	ds[0].mir = us[0].mir;
 	ds[0].pos = us[0].pos.translate((0, us[0].size.Y+32));

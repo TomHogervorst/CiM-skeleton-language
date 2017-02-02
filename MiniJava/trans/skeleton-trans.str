@@ -100,18 +100,14 @@ rules
 	add-tree-mirrors(|ast):
 		System(mods*, inports*, outports*, size, time, energy) -> System(resMods*, resInports*, resOutports*, resSize, time, energy)
 		with
-			if <eq>(<add>(<get-mapping-option> ast, <get-routing-option> ast), 0) then
-				(resMods*, resInports*, resOutports*, resSize) := (mods*, inports*, outports*, size)
-			else
-				modId := <index(|1); module-get-id; string-to-int> mods*;
-				modBlock := <index(|1); module-get-block> mods*;
-				inport1 := <get-libmod(|modId); libmod-get-input(|1); block-inherit(|modBlock)> ast;
-				inport2 := <get-libmod(|modId); libmod-get-input(|2); block-inherit(|modBlock)> ast;
-				(newMods*, resInports*, resOutports*) := <add-tree-mirrors(|mods*, inports*, outports*, size)>(inport1, inport2);
-				resBL := <modules-get-bottom-left(|ast)> newMods*;
-				resSize := <intpair-sub>(<modules-get-top-right(|ast)> newMods*, resBL);
-				resMods* := <modules-shift-to-origin(|ast)> newMods*
-			end	
+			modId := <index(|1); module-get-id; string-to-int> mods*;
+			modBlock := <index(|1); module-get-block> mods*;
+			inport1 := <get-libmod(|modId); libmod-get-input(|1); block-inherit(|modBlock)> ast;
+			inport2 := <get-libmod(|modId); libmod-get-input(|2); block-inherit(|modBlock)> ast;
+			(newMods*, resInports*, resOutports*) := <add-tree-mirrors(|mods*, inports*, outports*, size)>(inport1, inport2);
+			resBL := <modules-get-bottom-left(|ast)> newMods*;
+			resSize := <intpair-sub>(<modules-get-top-right(|ast)> newMods*, resBL);
+			resMods* := <modules-shift-to-origin(|ast)> newMods*
 			
 	add-tree-mirrors(|mods*, inputs*, outputs*, size):
 		(Block(loc1, rot1, mir1), Block(loc2, rot2, mir2)) -> (resMods*, resInputs*, resOutputs*)
@@ -151,13 +147,8 @@ rules
 	add-lin-mirrors(|ast):
 		System(mods*, inports*, outports*, size, time, energy) -> System(resMods*, resInports*, resOutports*, resSize, time, energy)
 		with
-			
-			if <eq>(<add>(<get-mapping-option> ast, <get-routing-option> ast), 0) then
-				(resMods*, resInports*, resOutports*, resSize) := (mods*, inports*, outports*, size)
-			else
-				(newMods*, resInports*, newOutports*, newSize) := <add-lin-in-mirrors(|ast, 1)>(mods*, inports*, outports*, size);
-				(resMods*, resOutports*, resSize) := <add-lin-out-mirrors(|ast, 1)>(newMods*, newOutports*, newSize)
-			end
+			(newMods*, resInports*, newOutports*, newSize) := <add-lin-in-mirrors(|ast, 1)>(mods*, inports*, outports*, size);
+			(resMods*, resOutports*, resSize) := <add-lin-out-mirrors(|ast, 1)>(newMods*, newOutports*, newSize)
 			
 	add-lin-in-mirrors(|ast, inputNum):
 		(mods*, inports*, outports*, size) -> (resMods*, resInports*, resOutports*, resSize)

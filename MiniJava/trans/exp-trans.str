@@ -79,28 +79,6 @@ rules
 			end
 			
 	exp-to-int(|ast, varArray*, systemArray*):
-		BinOp(value1, GreaterOrEqual(), value2) -> res
-		with
-			int1 := <exp-to-int(|ast, varArray*, systemArray*)> value1;
-			int2 := <exp-to-int(|ast, varArray*, systemArray*)> value2;
-			if <geq> (int1, int2) then
-				res := 1
-			else
-				res := 0
-			end
-		
-	exp-to-int(|ast, varArray*, systemArray*):
-		BinOp(value1, LessOrEqual(), value2) -> res
-		with
-			int1 := <exp-to-int(|ast, varArray*, systemArray*)> value1;
-			int2 := <exp-to-int(|ast, varArray*, systemArray*)> value2;
-			if <leq> (int1, int2) then
-				res := 1
-			else
-				res := 0
-			end
-			
-	exp-to-int(|ast, varArray*, systemArray*):
 		BinOp(value1, And(), value2) -> res
 		with
 			int1 := <exp-to-int(|ast, varArray*, systemArray*)> value1;

@@ -141,7 +141,7 @@ rules
 			res* := []
 			
 	connect-with-skeleton(|ast):
-		(sys1*, Skeleton(name, ModArg(usInSize, usOutSize, usName, usSize), ModArg(dsInSize, dsOutSize, dsName, dsSize), _, statements*), sys2*) -> resSystems*
+		(sys1*, Skeleton(name, ModArg(usInSize, usOutSize, usName, usSize), ModArg(dsInSize, dsOutSize, dsName, dsSize), _, statement), sys2*) -> resSystems*
 		with
 			systems1* := <to-list> sys1*;
 			systems2* := <to-list> sys2*;
@@ -149,7 +149,7 @@ rules
 			(loopnum2, inoutVars*) := <init-var-array(|inVars*)> (dsInSize, dsOutSize, dsSize, systems2*);
 			if <eq> (loopnum1, loopnum2) then
 				inoutModSizes* := ((<mod-int-to-int(|inoutVars*)> usInSize, <mod-int-to-int(|inoutVars*)> usOutSize, <div>(<exp-to-int(|"Error", inoutVars*, [])> usSize, loopnum1)), (<mod-int-to-int(|inoutVars*)> dsInSize, <mod-int-to-int(|inoutVars*)> dsOutSize, <div>(<exp-to-int(|"Error", inoutVars*, [])> dsSize, loopnum2)));
-				(connectRules*, unused*) := <skeleton-to-rules(|inoutVars*)> statements*;
+				(connectRules*, unused*) := <statement-to-rule(|inoutVars*)> statement;
 				systemsArray1* := <split-in(|loopnum1)> systems1*;
 				systemsArray2* := <split-in(|loopnum2)> systems2*;
 				resSystems* := <zip(map-with-rules(|ast, connectRules*, inoutModSizes*))>(systemsArray1*, systemsArray2*)
@@ -190,17 +190,18 @@ rules
 		
 	mod-int-to-int(|varArray*):
 		Any() -> 0
-	
-	skeleton-to-rules(|varArray*):
-		[statement | statements*] -> (resRules*, resVarArray*)
+   		
+   	statement-to-rule(|varArray*):
+   		Accolades([statement | statements*]) ->  (resRules*, resVarArray*)
    		with
    			(thisRule*, newVarArray*) := <statement-to-rule(|varArray*)> statement;
    			
-   			(thatRules*, resVarArray*) := <skeleton-to-rules(|newVarArray*)> statements*;
+   			(thatRules*, resVarArray*) := <statement-to-rule(|newVarArray*)> Accolades(statements*);
    			resRules* := [thisRule*, thatRules*]
    			
-   	skeleton-to-rules(|varArray*):
-   		[] -> ([], varArray*)
+    statement-to-rule(|varArray*):
+   		Accolades([]) ->  ([], varArray*)
+   		
    		
    	statement-to-rule(|varArray*):
    		VarDeclInit(type, name, exp) -> ([], resVarArray*)
@@ -210,35 +211,35 @@ rules
    			resVarArray* := <add-int-at-index>(varIndex, newElement, varArray*)
    			
    	statement-to-rule(|varArray*):
-   		IfThenElse(cond, statements1*, statements2*) -> (resRules*, resVarArray*)
+   		IfThenElse(cond, statement1, statement2) -> (resRules*, resVarArray*)
    		with
    			(unused*, condInt) := <deref-by-type(|"Error", [], varArray*, [])> (Boolean(), cond);
    			if <eq>(condInt, 1) then
-   				(resRules*, resVarArray*) := <skeleton-to-rules(|varArray*)> statements1*
+   				(resRules*, resVarArray*) := <statement-to-rule(|varArray*)> statement1
 			else
-				 (resRules*, resVarArray*) := <skeleton-to-rules(|varArray*)> statements2*
+				 (resRules*, resVarArray*) := <statement-to-rule(|varArray*)> statement2
 			end
 			
 	statement-to-rule(|varArray*):
-		WhileLoop(value, statements*) -> (resRules*, resVarArray*)
+		WhileLoop(value, statement) -> (resRules*, resVarArray*)
 		with
 			(unused*, condValue) := <deref-by-type(|"Error", [], varArray*, [])> (Boolean(), value);
 			if <eq>(condValue, 0) then
 				resVarArray* := varArray*;
 				resRules* := []
 			else
-				(thisRules*, newVarArray*) := <skeleton-to-rules(|varArray*)> statements*;
-				(thatRules*, resVarArray*) := <statement-to-rule(|newVarArray*)> WhileLoop(value, statements*);
+				(thisRules*, newVarArray*) := <statement-to-rule(|varArray*)> statement;
+				(thatRules*, resVarArray*) := <statement-to-rule(|newVarArray*)> WhileLoop(value, statement);
 				resRules* := [thisRules*, thatRules*]
 			end
    			
    	statement-to-rule(|varArray*):
-   		ForLoop(name, array*, statements*) -> (resRules*, resVarArray*)
+   		ForLoop(name, array*, statement) -> (resRules*, resVarArray*)
 		with
 			arrayType := <get-type;  array-get-type> array*;
 			(unused*, derefedArray*) := <array-to-list(|"Error", [], varArray*, [], arrayType)> array*;
 			varIndex := <get-var-index> name;
-			(resRules*, resVarArray*) := <loop-over-array(| varIndex, statements*, varArray*)> derefedArray*
+			(resRules*, resVarArray*) := <loop-over-array(| varIndex, statement, varArray*)> derefedArray*
 	
 	statement-to-rule(|varArray*):
 		CompAttrAssign(name, array*, attr, exp) -> (resRules*, varArray*)
@@ -270,15 +271,15 @@ rules
 				resVarArray* := <set-index> (realIndex, <inc> elem, varArray*)
 			end
 	
-	loop-over-array(|varIndex, statements*, varArray*):
+	loop-over-array(|varIndex, statement, varArray*):
 		[newVarValue | array*] -> (resRules*, resVarArray*)
 		with
 			newVarArray* := <set-index>(<subt>(varIndex, 1), newVarValue, varArray*);
-			(thisRules*, newerVarArray*) := <skeleton-to-rules(|newVarArray*)> statements*;
-			(thatRules*, resVarArray*) := <loop-over-array(|varIndex, statements*, newerVarArray*)> array*;
+			(thisRules*, newerVarArray*) := <statement-to-rule(|newVarArray*)> statement;
+			(thatRules*, resVarArray*) := <loop-over-array(|varIndex, statement, newerVarArray*)> array*;
 			resRules* := [thisRules*, thatRules*]
 			
-	loop-over-array(|varIndex, statements*, varArray*):
+	loop-over-array(|varIndex, statement, varArray*):
 		[] -> ([], varArray*)
 	
 	remove-var(|varArray*):
@@ -811,7 +812,7 @@ rules
    	*/
    	
 	statement-to-dfg(|ast, systemArray*, systemTuples*, inputSize, sigNum, skeletons*):
-		OutputAssign(array, signal, Some(ConSkel(conOp, skel))) -> res*
+		OutputAssign(array, signal, Some(ConSkel(skel))) -> res*
 		with
 			
 			skelsys* := <ast-to-dfg(|ast, systemTuples*, skeletons*)> skel;
@@ -828,7 +829,7 @@ rules
 			res* := <set-index>(0, <shuffle-with-array(|array)>thisSys, systemArray*)
 			
 	statement-to-dfg(|ast, systemArray*, systemTuples*, inputSize, sigNum, skeletons*):
-		SignalAssign(num, array, signal, Some(ConSkel(conOp, skel))) -> res*
+		SignalAssign(signal, Some(ConSkel(skel)), num, array) -> res*
 		with
 			skelsys* := <ast-to-dfg(|ast, systemTuples*, skeletons*)> skel;
 			skelsys := <system-map-together(|ast, 0)>skelsys*;
@@ -836,7 +837,7 @@ rules
 			res* := <set-index>(num, <shuffle-with-array(|array)>thisSys, systemArray*)
 			
 	statement-to-dfg(|ast, systemArray*, systemTuples*, inputSize, sigNum, skeletons*):
-		SignalAssign(num, array, signal, None()) -> res*
+		SignalAssign(signal, None(), num, array) -> res*
 		with
 			skelsys* := <length; empty-system> array;
 			skelsys := <system-map-together(|ast, 0)>skelsys*;

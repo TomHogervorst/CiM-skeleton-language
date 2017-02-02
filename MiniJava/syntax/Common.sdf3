@@ -70,7 +70,7 @@ lexical syntax
   ID = "mirrorY" {reject}
   ID = "X" {reject}
   ID = "Y" {reject}
-  ID = "repeat" {reject}
+  ID = "copy" {reject}
   
   //deprecated keywords
   ID = "deprecated_in" {reject}

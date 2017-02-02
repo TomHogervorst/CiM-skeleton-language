@@ -25,29 +25,29 @@ rules
 		SigArg(name, exp) -> <exp-to-int(|"error", varArray*, [])> exp	
 	
 	get-num-vars:
-		Main(_, _,argdecls*, statements*) -> <length> res
+		Main(_, _,argdecls*, statement) -> <length> res
 		with
-			vardecls* := <statements-get-vardecls> statements*;
+			vardecls* := <statement-get-vardecls> statement;
 			allvars* := [argdecls*, vardecls*];
 			res := <length> allvars*
 		
 	get-num-vars:
-		Entity(_, _, _, argdecls*, statements*) -> res
+		Entity(_, _, _, argdecls*, statement) -> res
 		with
-			vardecls* := <statements-get-vardecls> statements*;
+			vardecls* := <statement-get-vardecls> statement;
 			allvars* := [argdecls*, vardecls*];
 			res := <length> allvars*
 			
 	get-signal-sizes:
-		Entity(_, _, _, argdecls*, statements*) -> res*
+		Entity(_, _, _, argdecls*, statement) -> res*
 		with
-			signals* := <statements-get-sigdecls> statements*;
+			signals* := <statement-get-sigdecls> statement;
 			res* := <map(signal-decl-get-size)> signals*
 			
 	get-num-sigs:
-		Entity(_, insigs*, outsigs*, _, statements*) -> res
+		Entity(_, insigs*, outsigs*, _, statement) -> res
 		with
-			sigs* := <statements-get-sigdecls> statements*;
+			sigs* := <statement-get-sigdecls> statement;
 			inoutsigs* := [insigs*, outsigs*];
 			totalsigs* := [inoutsigs*, sigs*];
 			res := <length> totalsigs*

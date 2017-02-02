@@ -24,10 +24,6 @@ ArgDecl.ArgDecl = <<Type> <ID>>
 SigArg.SigArg = <<ID>[<Exp>]>
 SigArg.SingleSigArg = <<ID>>
 
-MainEntity.Main = <component main\<<{SigArg ", "}+> | <{SigArg ", "}+>\>(<{ArgDecl ", "}*>){
-	<{Statement "\n"}*>
-}>
+MainEntity.Main = <component main\<<{SigArg ", "}+> | <{SigArg ", "}+>\>(<{ArgDecl ", "}*>)<Statement>>
 
-Entity.Entity = <component <ID>\<<{SigArg ", "}+> | <{SigArg ", "}+>\>(<{ArgDecl ", "}*>){
-	<{Statement "\n"}*>
-}>
+Entity.Entity = <component <ID>\<<{SigArg ", "}+> | <{SigArg ", "}+>\>(<{ArgDecl ", "}*>)<Statement>>

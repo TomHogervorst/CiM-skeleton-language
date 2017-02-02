@@ -25,15 +25,10 @@ rules
 	desugar: LT(exp1, exp2) -> BinOp(exp1, LessThan(), exp2)
 	desugar: GT(exp1, exp2) -> BinOp(exp1, GreaterThan(), exp2)
 	desugar: EQ(exp1, exp2) -> BinOp(exp1, EqualTo(), exp2)
-	desugar: LEQ(exp1, exp2) -> BinOp(exp1, LessOrEqual(), exp2)
-	desugar: GEQ(exp1, exp2) -> BinOp(exp1, GreaterOrEqual(), exp2)
 	desugar: Max(exp1, exp2) -> BinOp(exp1, MaxOf(), exp2)
 	
 	desugar: True() -> Int("1")
 	desugar: False() -> Int("0")
-	
-	desugar: FoldRight2(op, exp1, exp2) -> FoldRight(op, Append(exp1, exp2))
-	desugar: FoldLeft2(op, exp1, exp2) -> FoldLeft(op, Append(exp1, exp2))
 	
 	desugar: Range(exp1, exp2) -> Interval(exp1, Int("1"), exp2)
 	
@@ -45,10 +40,6 @@ rules
 	
 	desugar: SingleSigRef(name) -> SigRef(name, Int("0"))
 	
-	desugar: AltConSkel(skel) -> ConSkel(Linear(), skel)
-	
-	desugar: SingleSignalAssign(name, signal, conskel) -> SignalAssign(name, Int("0"), signal, conskel)
-	desugar: AltSignalAssign(signal, conskel, name, array) -> SignalAssign(name, array, signal, conskel)
 	desugar: AltSingleSignalAssign(signal, conskel, name) -> SignalAssign(name, Int("0"), signal, conskel)
 	
 	desugar: SingleModRef(name) -> ModRef(name, Int("0"))
