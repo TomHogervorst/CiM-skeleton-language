@@ -3,7 +3,7 @@ module mapped/MappedModule
 imports
   Common
   IntPair
-  mapped/MappedBlock
+  mapped/MappedLocation
   
 sorts
   MappedModule
@@ -17,7 +17,7 @@ template options
   tokenize: "[]"
 
 context-free syntax
-  MappedInputPort.MappedInputPort = <in<INT>, <INT>, <MappedBlock>>
-  MappedInputPort.MappedModulePort = <m<INT>, <INT>, <MappedBlock>>
-  //funcnum, pos block, width, height, timestep, delay, energy, outport block, inputpports
-  MappedModule.MappedModule = <<INT>, <MappedBlock>, <INT>, <INT>, <INT>, <INT>, <INT>, <MappedBlock>, <{MappedInputPort ", "}*>>
+  MappedInputPort.MappedInputPort = <in<INT>, <INT>, <MappedLocation>>
+  MappedInputPort.MappedModulePort = <m<INT>, <INT>, <MappedLocation>>
+  //funcnum, pos Location, width, height, timestep, delay, energy, outport Location, inputpports
+  MappedModule.MappedModule = <<INT>, <MappedLocation>, <INT>, <INT>, <INT>, <INT>, <INT>, <MappedLocation>, <{MappedInputPort ", "}*>>

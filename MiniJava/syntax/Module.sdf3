@@ -3,7 +3,7 @@ module Module
 imports
   Common
   IntPair
-  Block
+  Location
   
 sorts
   Module
@@ -16,5 +16,5 @@ template options
   keyword -/- [a-zA-Z]
 
 context-free syntax
-  //              LibModId, time,floorplan,  source
-  Module.Module = <(<INT>, <INT>, <Block>, <IntPair*>)>
+  //              FuncBlockId, time,floorplan,  source
+  Module.Module = <(<INT>, <INT>, <Location>, <IntPair*>)>

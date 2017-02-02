@@ -1,15 +1,15 @@
-module LibMod
+module FuncBlock
 
 imports
   Common
   IntPair
-  Block
+  Location
   
 sorts
-  LibMod
+  FuncBlock
   
 context-free start-symbols
-  LibMod
+  FuncBlock
   
 template options
   tokenize: "()[]"
@@ -17,4 +17,4 @@ template options
 
 context-free syntax 
   //                       name,  size,  latency, energy, inputs, outputs
-  LibMod.LibMod = <LibMod(<ID>, <IntPair>, <INT>, <INT>, <Block*>, <Block*>);>
+  FuncBlock.FuncBlock = <FuncBlock(<ID>, <IntPair>, <INT>, <INT>, <Location*>, <Location*>);>

@@ -5,7 +5,7 @@ imports src-gen/signatures/Expression-sig
 	src-gen/signatures/Statement-sig
 	src-gen/signatures/Type-sig
 	src-gen/signatures/Skeleton-sig
-	src-gen/signatures/Entity-sig
+	src-gen/signatures/Component-sig
 	src-gen/signatures/Expression-sig
 
 strategies
@@ -35,7 +35,7 @@ rules
 	desugar: VarDecl(Array(type), name) -> VarDeclInit(Array(type), name, ManualDefinition([]))
 	desugar: VarDecl(Integer(), name) -> VarDeclInit(Integer(), name, Int("0"))
 	desugar: VarDecl(Boolean(), name) -> VarDeclInit(Boolean(), name, False())
-	desugar: VarDecl(Skeleton(), name) -> VarDeclInit(Skeleton(), name, Nop())
+	desugar: VarDecl(Comp(), name) -> VarDeclInit(Comp(), name, Nop())
 	desugar: VarDecl(Coordinate(), name) -> VarDeclInit(Coordinate(), name, CoordVal("0", "0"))
 	
 	desugar: SingleSigRef(name) -> SigRef(name, Int("0"))
@@ -45,6 +45,6 @@ rules
 	desugar: SingleModRef(name) -> ModRef(name, Int("0"))
 	desugar: SingleCompAttrAssign(name, attr, exp) -> CompAttrAssign(name, Int("0"), attr, exp)
 	
-	desugar: SingleSigArg(name) -> SigArg(name, Int("1"))
-	desugar: SingleModArg(inports, outports, name) -> ModArg(inports, outports, name, Int("1"))
+	desugar: SingleSigParam(name) -> SigParam(name, Int("1"))
+	desugar: SingleModParam(inports, outports, name) -> ModParam(inports, outports, name, Int("1"))
 	desugar: SingleSignalDecl(name) -> SignalDecl(name, Int("1"))

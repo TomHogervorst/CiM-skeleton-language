@@ -32,9 +32,9 @@ imports
 rules //index related rules
 	
 	nabl-prop-site(|lang, ctx, uri*, state*, implicit*):
-		Program(libmods*, main, comps*, skels*) -> <fail>
+		Program(funcblocks*, main, comps*, skels*) -> <fail>
   where
- 	<map-with-index(store-index(|ctx))> libmods*;
+ 	<map-with-index(store-index(|ctx))> funcblocks*;
  	<store-indices(|ctx)> main;
  	<map(store-indices(|ctx))> comps*;
  	<map-with-index(store-index(|ctx))> comps*;
@@ -53,7 +53,7 @@ rules //index related rules
 	 		res := <map-with-index(store-index(|ctx))> allvars*
 	 
 	 store-indices(|ctx):
-	 	Entity(_, insigs*, outsigs*, argdecls*, statement) -> result
+	 	Component(_, insigs*, outsigs*, argdecls*, statement) -> result
 	 	with
 	 		vardecls* := <statement-get-vardecls> statement;
 	 		sigdecls* := <statement-get-sigdecls> statement;
@@ -77,7 +77,7 @@ rules //index related rules
 	 */
 	 		
 	 mods-get-vardecls:
-	 	(ModArg(usInSize, usOutSize, _, usSize), ModArg(dsInSize, dsOutSize, _, dsSize)) -> resVarArray*
+	 	(ModParam(usInSize, usOutSize, _, usSize), ModParam(dsInSize, dsOutSize, _, dsSize)) -> resVarArray*
 	 	with
 	 		resVarArray* := <get-var-names(|[])> [usInSize, usOutSize, usSize, dsInSize, dsOutSize, dsSize]
 	 		
@@ -112,16 +112,16 @@ rules //index related rules
 	 	VarRef(name) -> name
 	 		
 	 store-index(|ctx):
-		(i, LibMod(name, _ , _, _, _, _)) -> <store-lib-index(|ctx, i)> name
+		(i, FuncBlock(name, _ , _, _, _, _)) -> <store-lib-index(|ctx, i)> name
 	
 	 store-index(|ctx):
-	 	(i, Entity(name, _, _, _, _)) -> <store-comp-index(|ctx, i)> name
+	 	(i, Component(name, _, _, _, _)) -> <store-comp-index(|ctx, i)> name
 	 		
 	 store-index(|ctx):
 	 	(i, Skeleton(name, _, _, _, _)) -> <store-skel-index(|ctx, i)> name	 	
 	 		
 	 store-index(|ctx):
-	 	(i, SigArg(name, size)) -> <store-sig-index(|ctx, i)> name
+	 	(i, SigParam(name, size)) -> <store-sig-index(|ctx, i)> name
 	 		
 	 store-index(|ctx):
 	 	(i, SignalDecl(name, size)) -> <store-sig-index(|ctx, i)> name
@@ -139,13 +139,13 @@ rules //index related rules
 	 	(i, VarDeclInit(t, name, exp)) -> <store-var-index(|ctx, i)> name
 	 		
 	 store-index(|ctx):
-	 	(i, ArgDecl(t, name)) -> <store-var-index(|ctx, i)> name
+	 	(i, ParamDecl(t, name)) -> <store-var-index(|ctx, i)> name
 	 	
 	 store-index(|ctx):
-	 	(i, ModArg(_, _, name, _)) -> <store-mod-index(|ctx, i)> name
+	 	(i, ModParam(_, _, name, _)) -> <store-mod-index(|ctx, i)> name
 	 	
 	 store-index(|ctx):
-	 	(i, SingleModArg(_, _, name)) -> <store-mod-index(|ctx, i)> name
+	 	(i, SingleModParam(_, _, name)) -> <store-mod-index(|ctx, i)> name
 	 
 rules // Analysis
   

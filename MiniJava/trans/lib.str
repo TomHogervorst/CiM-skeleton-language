@@ -7,11 +7,11 @@ imports
   lib/runtime/types/-
   lib/runtime/relations/-
   lib/runtime/editor/-
-  src-gen/signatures/LibMod-sig
+  src-gen/signatures/FuncBlock-sig
   src-gen/signatures/MiniJava-sig
   src-gen/signatures/Signal-sig
   src-gen/signatures/Statement-sig
-  src-gen/signatures/Entity-sig
+  src-gen/signatures/Component-sig
   src-gen/signatures/Common-sig
   src-gen/signatures/Type-sig
   src-gen/signatures/Expression-sig
@@ -342,15 +342,15 @@ rules
 rules
 
   nabl-get-name :
-    LibMod(name, _, _, _, _, _) -> name
+    FuncBlock(name, _, _, _, _, _) -> name
 
   nabl-name-apply(s) =
-    LibMod(s, id, id, id, id, id)
+    FuncBlock(s, id, id, id, id, id)
 
   nabl-def-site(child-uris__, sibl-uris__, implicits__|lang__, ctx__, uniques__, uri__, states__) =
-    ?LibMod(name, _, _, _, _, _)
+    ?FuncBlock(name, _, _, _, _, _)
     ; origin-track-forced(
-        LibMod(
+        FuncBlock(
           nabl-def(
             ?c-uri1__
           , ?s-uri1__
@@ -378,12 +378,12 @@ rules
     ; match(implicits__|[])
 
   nabl-prop-site(|lang__, ctx__, uris__, states__, implicits__) =
-    ?LibMod(name, _, _, _, _, _)
+    ?FuncBlock(name, _, _, _, _, _)
     ; (where(id)
-       ; LibMod(
+       ; FuncBlock(
            nabl-store-props(
            | ctx__
-           , [Prop(Type(), Skeleton(), [])]
+           , [Prop(Type(), Comp(), [])]
            )
          , id
          , id
@@ -443,19 +443,19 @@ rules
     ; match(implicits__|[])
 
   nabl-get-scope =
-    ?Entity(name, _, _, args*, _)
+    ?Component(name, _, _, args*, _)
     ; ![NablNsSignal(), NablNsVariable()]
 
   nabl-get-name :
-    Entity(name, _, _, args*, _) -> name
+    Component(name, _, _, args*, _) -> name
 
   nabl-name-apply(s) =
-    Entity(s, id, id, id, id)
+    Component(s, id, id, id, id)
 
   nabl-def-site(child-uris__, sibl-uris__, implicits__|lang__, ctx__, uniques__, uri__, states__) =
-    ?Entity(name, _, _, args*, _)
+    ?Component(name, _, _, args*, _)
     ; origin-track-forced(
-        Entity(
+        Component(
           nabl-def(
             ?c-uri1__
           , ?s-uri1__
@@ -482,16 +482,16 @@ rules
     ; match(implicits__|[])
 
   nabl-prop-site(|lang__, ctx__, uris__, states__, implicits__) =
-    ?Entity(name, _, _, args*, _)
+    ?Component(name, _, _, args*, _)
     ; (where(a_t* := <new-task-fixdeps(|ctx__, [])> Id(
                                                       <get-or-create-property-task(|ctx__, Type())> args*
                                                     ))
-       ; Entity(
+       ; Component(
            nabl-store-props(
            | ctx__
            , [ Prop(
                  Type()
-               , (Skeleton(), a_t*)
+               , (Comp(), a_t*)
                , []
                )
              ]
@@ -578,15 +578,15 @@ rules
     ; match(implicits__|[])
 
   nabl-get-name :
-    SigArg(name, size) -> name
+    SigParam(name, size) -> name
 
   nabl-name-apply(s) =
-    SigArg(s, id)
+    SigParam(s, id)
 
   nabl-def-site(child-uris__, sibl-uris__, implicits__|lang__, ctx__, uniques__, uri__, states__) =
-    ?SigArg(name, size)
+    ?SigParam(name, size)
     ; origin-track-forced(
-        SigArg(
+        SigParam(
           nabl-def(
             ?c-uri1__
           , ?s-uri1__
@@ -739,15 +739,15 @@ rules
       )
 
   nabl-get-name :
-    ModArg(_, _, name, _) -> name
+    ModParam(_, _, name, _) -> name
 
   nabl-name-apply(s) =
-    ModArg(id, id, s, id)
+    ModParam(id, id, s, id)
 
   nabl-def-site(child-uris__, sibl-uris__, implicits__|lang__, ctx__, uniques__, uri__, states__) =
-    ?ModArg(_, _, name, _)
+    ?ModParam(_, _, name, _)
     ; origin-track-forced(
-        ModArg(
+        ModParam(
           id
         , id
         , nabl-def(
@@ -773,15 +773,15 @@ rules
     ; match(implicits__|[])
 
   nabl-get-name :
-    SingleModArg(_, _, name) -> name
+    SingleModParam(_, _, name) -> name
 
   nabl-name-apply(s) =
-    SingleModArg(id, id, s)
+    SingleModParam(id, id, s)
 
   nabl-def-site(child-uris__, sibl-uris__, implicits__|lang__, ctx__, uniques__, uri__, states__) =
-    ?SingleModArg(_, _, name)
+    ?SingleModParam(_, _, name)
     ; origin-track-forced(
-        SingleModArg(
+        SingleModParam(
           id
         , id
         , nabl-def(
@@ -873,15 +873,15 @@ rules
       )
 
   nabl-get-name :
-    ArgDecl(t, name) -> name
+    ParamDecl(t, name) -> name
 
   nabl-name-apply(s) =
-    ArgDecl(id, s)
+    ParamDecl(id, s)
 
   nabl-def-site(child-uris__, sibl-uris__, implicits__|lang__, ctx__, uniques__, uri__, states__) =
-    ?ArgDecl(t, name)
+    ?ParamDecl(t, name)
     ; origin-track-forced(
-        ArgDecl(
+        ParamDecl(
           id
         , nabl-def(
             ?c-uri1__
@@ -905,9 +905,9 @@ rules
     ; match(implicits__|[])
 
   nabl-prop-site(|lang__, ctx__, uris__, states__, implicits__) =
-    ?ArgDecl(t, name)
+    ?ParamDecl(t, name)
     ; (where(id)
-       ; ArgDecl(
+       ; ParamDecl(
            id
          , nabl-store-props(
            | ctx__

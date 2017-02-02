@@ -1,14 +1,14 @@
-module mapped/MappedBlock
+module mapped/MappedLocation
 
 imports
   Common
 
   
 sorts
-  MappedBlock
+  MappedLocation
   
 context-free start-symbols
-  MappedBlock
+  MappedLocation
   
 template options 
   tokenize: "()"
@@ -16,4 +16,4 @@ template options
 
 context-free syntax
   //              x, y, angle
-  MappedBlock.MappedBlock = <<INT>, <INT>, <INT>>
+  MappedLocation.MappedLocation = <<INT>, <INT>, <INT>>

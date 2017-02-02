@@ -14,6 +14,5 @@ context-free syntax
 Type.Integer = <int>
 Type.Array = <<Type>[]>
 Type.Boolean = <bool>
-Type.Skeleton = <comp>
+Type.Comp = <comp>
 Type.Coordinate = <coord>
-Type.Port = <port>

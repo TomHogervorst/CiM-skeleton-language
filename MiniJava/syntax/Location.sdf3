@@ -1,14 +1,14 @@
-module Block
+module Location
 
 imports
   Common
   IntPair
   
 sorts
-  Block
-  
+  Location
+   
 context-free start-symbols
-  Block
+  Location
   
 template options
   tokenize: "()[]"
@@ -16,4 +16,4 @@ template options
 
 context-free syntax
   //              position,  angle,  mirror
-  Block.Block = <(<IntPair>, <INT>, <INT>)> 
+  Location.Location = <(<IntPair>, <INT>, <INT>)> 

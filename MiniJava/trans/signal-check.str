@@ -138,7 +138,7 @@ rules
     	VarRef(_) -> 1
     	
     check-skeleton(|ast, tuples*):
-    	LibModNum(_) -> 1
+    	FuncBlockNum(_) -> 1
     		
     check-skeleton(|ast, tuples*):
     	Connect(skel1, _, skel2) -> res

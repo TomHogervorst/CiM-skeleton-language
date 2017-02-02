@@ -105,7 +105,7 @@ context-free syntax
   
   Exp.Connect = <<Exp> <ConnectOp> <Exp>> {right}
   Exp.CompRef= <<ID>(<{Exp ", "}*>)>
-  Exp.LibModNum  = <#<INT>>
+  Exp.FuncBlockNum  = <#<INT>>
   Exp.Nop = <NOP>
   
   /*Component expressions*/

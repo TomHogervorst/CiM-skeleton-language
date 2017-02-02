@@ -4,7 +4,7 @@ imports
   Common
   Statement
   Expression
-  Entity
+  Component
   
 sorts
   Skeleton
@@ -13,10 +13,10 @@ context-free start-symbols
   Skeleton
   
 context-free syntax
-	ModArg.ModArg = <\<<ModInt> | <ModInt>\><ID>[<Exp>]>
-	ModArg.SingleModArg = <\<<ModInt> | <ModInt>\><ID>>
+	ModParam.ModParam = <\<<ModInt> | <ModInt>\><ID>[<Exp>]>
+	ModParam.SingleModParam = <\<<ModInt> | <ModInt>\><ID>>
 
-	Skeleton.Skeleton = <skeleton <CO> \<<ModArg> | <ModArg>\>(<{ArgDecl ", "}*>)<Statement>>
+	Skeleton.Skeleton = <skeleton <CO> \<<ModParam> | <ModParam>\>(<{ParamDecl ", "}*>)<Statement>>
 	
 	SkelIR.SkelInport = <<INT>\<<INT>|_\>>
 	SkelIR.SkelOutport = <<INT>\<_|<INT>\>>

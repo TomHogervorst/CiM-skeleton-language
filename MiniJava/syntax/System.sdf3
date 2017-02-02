@@ -3,7 +3,7 @@ module System
 imports
   Common
   IntPair
-  Block
+  Location
   Module
   
 sorts

@@ -12,11 +12,11 @@ imports
   lib/runtime/types/collect
   lib/runtime/editor/origins
   */
-  src-gen/signatures/LibMod-sig
+  src-gen/signatures/FuncBlock-sig
   src-gen/signatures/MiniJava-sig
   src-gen/signatures/Signal-sig
   src-gen/signatures/Statement-sig
-  src-gen/signatures/Entity-sig
+  src-gen/signatures/Component-sig
   src-gen/signatures/Common-sig
   src-gen/signatures/Type-sig
   src-gen/signatures/Expression-sig
@@ -33,13 +33,13 @@ namespaces
   
 binding rules
 
-  LibMod(name, _, _, _, _, _): defines Library name of type Skeleton()
+  FuncBlock(name, _, _, _, _, _): defines Library name of type Comp()
   
   Program(_, _, _, _): scopes Library, Component, Skeleton
   
   Skeleton(name, _,  _, _, _): defines Skeleton name scopes Module, Variable
   
-  Entity(name, _, _, args*, _): defines Component name of type (Skeleton(), a_t*) 
+  Component(name, _, _, args*, _): defines Component name of type (Comp(), a_t*) 
   	where args* has type a_t* 
   	scopes Signal, Variable
   CompRef(name, _): refers to Component name
@@ -47,18 +47,18 @@ binding rules
   Main(_, _, _, _): scopes Signal, Variable 
   
   SignalDecl(name, size): defines Signal name
-  SigArg(name, size): defines Signal name 
+  SigParam(name, size): defines Signal name 
   SignalAssign(_, _, name, _): refers to Signal name
   SigRef(name, _): refers to Signal name
   
   ModRef(name, index): refers to Module name
   SingleModRef(name): refers to Module name
-  ModArg(_, _, name, _): defines Module name
-  SingleModArg(_, _, name): defines Module name
+  ModParam(_, _, name, _): defines Module name
+  SingleModParam(_, _, name): defines Module name
   CompAttrAssign(name, index, attr, exp): refers to Module name
   SingleCompAttrAssign(name, attr, exp): refers to Module name
   
-  ArgDecl(t, name): defines Variable name of type t
+  ParamDecl(t, name): defines Variable name of type t
   VarDecl(t, name): defines Variable name of type t
   VarDeclInit(t, name, _): defines Variable name of type t
   

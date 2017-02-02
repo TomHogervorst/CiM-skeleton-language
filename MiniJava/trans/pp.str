@@ -5,11 +5,11 @@ imports
   libstratego-gpp
   lib/runtime/tmpl/pp
   //lib/runtime/refactoring/-
-  src-gen/pp/Block-pp
+  src-gen/pp/Location-pp
   src-gen/pp/Common-pp
-  src-gen/pp/Entity-pp
+  src-gen/pp/Component-pp
   src-gen/pp/IntPair-pp
-  src-gen/pp/LibMod-pp
+  src-gen/pp/FuncBlock-pp
   src-gen/pp/MiniJava-pp
   src-gen/pp/Module-pp
   src-gen/pp/Signal-pp
@@ -18,18 +18,18 @@ imports
   src-gen/pp/Type-pp
   src-gen/pp/Expression-pp
   src-gen/pp/Skeleton-pp
-  src-gen/pp/graphics/DrawBlock-pp
+  src-gen/pp/graphics/DrawLocation-pp
   src-gen/pp/graphics/DrawSystem-pp
-  src-gen/pp/mapped/MappedBlock-pp
+  src-gen/pp/mapped/MappedLocation-pp
   src-gen/pp/mapped/MappedModule-pp
   src-gen/pp/mapped/MappedSystem-pp
   src-gen/pp/SystemC/SystemCSystem-pp
   src-gen/pp/SystemC/SystemCModule-pp
-  src-gen/check/Block-chk
+  src-gen/check/Location-chk
   src-gen/check/Common-chk
-  src-gen/check/Entity-chk
+  src-gen/check/Component-chk
   src-gen/check/IntPair-chk
-  src-gen/check/LibMod-chk
+  src-gen/check/FuncBlock-chk
   src-gen/check/MiniJava-chk
   src-gen/check/Module-chk
   src-gen/check/Signal-chk
@@ -38,9 +38,9 @@ imports
   src-gen/check/Type-chk
   src-gen/check/Expression-chk
   src-gen/check/Skeleton-chk
-  src-gen/check/graphics/DrawBlock-chk
+  src-gen/check/graphics/DrawLocation-chk
   src-gen/check/graphics/DrawSystem-chk
-  src-gen/check/mapped/MappedBlock-chk
+  src-gen/check/mapped/MappedLocation-chk
   src-gen/check/mapped/MappedModule-chk
   src-gen/check/mapped/MappedSystem-chk
   src-gen/check/SystemC/SystemCSystem-chk

@@ -2,7 +2,7 @@ module graphics/DrawSystem
 
 imports
   Common
-  graphics/DrawBlock
+  graphics/DrawLocation
   
 sorts
   DrawSystem
@@ -16,11 +16,11 @@ template options
 
 context-free syntax
   DrawSystem.DrawModule = <PS_setcolor(ps, "both", "gray", 0, 0.0, 0.0, 0.0);
-<DrawBlock>
+<DrawLocation>
 PS_setcolor(ps, "both", "rgb", 1, 0.0, 0.0, 0.0);
-<{DrawBlock "\n  "}*>
+<{DrawLocation "\n  "}*>
 PS_setcolor(ps, "both", "rgb", 0, 1, 0.0, 0.0);
-<{DrawBlock "\n  "}*>
+<{DrawLocation "\n  "}*>
 PS_setcolor(ps, "both", "rgb", 0, 0, 1, 0.0);
 <{DrawConnection "\n"}*>>
 
@@ -28,7 +28,7 @@ PS_setcolor(ps, "both", "rgb", 0, 0, 1, 0.0);
 #include \<stdio.h\>
 #include \<stdlib.h\>
 
-void DrawBlock(PSDoc *ps, int pos_x, int pos_y, int size_x, int size_y, int angle, int mir)
+void DrawLocation(PSDoc *ps, int pos_x, int pos_y, int size_x, int size_y, int angle, int mir)
 {
   PS_save(ps);
 
@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
   }
   PS_begin_page(ps, <INT>, <INT>);
   PS_translate(ps, 100, 100);
-  DrawBlock(ps, 0, 0, <INT>, <INT>, 0, 0);
+  DrawLocation(ps, 0, 0, <INT>, <INT>, 0, 0);
   
   <{DrawSystem "\n"}*>
   

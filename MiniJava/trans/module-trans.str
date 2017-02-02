@@ -5,18 +5,18 @@ imports
   libstratego-gpp
   lib/runtime/tmpl/pp
   src-gen/signatures/Module-sig
-  src-gen/signatures/Block-sig
+  src-gen/signatures/Location-sig
   src-gen/signatures/IntPair-sig
-  block-trans
+  location-trans
   helper
   intpair-trans
   program-trans
-  libmod-trans
+  funcblock-trans
   system-trans
 
 rules
-	module-get-block:
-		Module(modId, _, block, _) -> block
+	module-get-location:
+		Module(modId, _, location, _) -> location
 	
 	module-get-id:
 		Module(modId, _, _, _) -> modId
@@ -48,71 +48,71 @@ rules
 	 	(module*, shiftY) -> <map(module-shiftY(|shiftY))> module*
 	 	
 	 module-shiftX(|shiftX):
-	 	Module(modId, time, block, source*) -> Module(modId, time, newblock, source*)
+	 	Module(modId, time, location, source*) -> Module(modId, time, newLocation, source*)
 		with
-			newblock := <block-shiftX(|shiftX)>block
+			newLocation := <location-shiftX(|shiftX)> location
 			
 	 module-shiftY(|shiftY):
-	 	Module(modId, time, block, source*) -> Module(modId, time, newblock, source*)
+	 	Module(modId, time, location, source*) -> Module(modId, time, newLocation, source*)
 		with
-			newblock := <block-shiftY(|shiftY)>block
+			newLocation := <location-shiftY(|shiftY)> location
 			
 	module-rotate(|angle):
-		Module(modId, time, block, source*) -> Module(modId, time, newblock, source*)
+		Module(modId, time, location, source*) -> Module(modId, time, newLocation, source*)
 		with
-			newblock := <block-rotate(|angle)> block
+			newLocation := <location-rotate(|angle)> location
 			
 	module-flip:
-		Module(modId, time, block, source*) -> Module(modId, time, newblock, source*)
+		Module(modId, time, location, source*) -> Module(modId, time, newLocation, source*)
 		with
-			newblock := <block-mirror> block
+			newLocation := <location-mirror> location
 			
 	module-reorientate-at-origin(|rot, mir):
-		Module(modId, time, block, source*) -> Module(modId, time, newBlock, source*)
+		Module(modId, time, location, source*) -> Module(modId, time, newLocation, source*)
 		with	
-			newBlock := <block-rotate-around-origin(|rot); block-flip-in-X(|mir)> block
+			newLocation := <location-rotate-around-origin(|rot); location-flip-in-X(|mir)> location
 
-	module-get-libmod(|ast):
-		Module(modId, _, _, _) -> <get-libmod(|<string-to-int>modId)> ast
+	module-get-funcblock(|ast):
+		Module(modId, _, _, _) -> <get-funcblock(|<string-to-int>modId)> ast
 		
 	modules-transform:
-		(mod*, block) -> <map(module-transform(|block))> mod*
+		(mod*, location) -> <map(module-transform(|location))> mod*
 	
 	module-transform(|tb):
-	 	Module(modId, time, block, source*) -> Module(modId, time, <block-inherit(|tb)>block, source*)
+	 	Module(modId, time, location, source*) -> Module(modId, time, <location-inherit(|tb)> location, source*)
 	
 	module-delay(|latency):
-		Module(modId, time, block, source*) -> Module(modId, newTime, block, source*)
+		Module(modId, time, location, source*) -> Module(modId, newTime, location, source*)
 		with
 			newTime := <add; int-to-string>(<string-to-int>time, latency)
 			
 	module-get-sources:
-		Module(modId, time, block, sources*) -> sources*	
+		Module(modId, time, location, sources*) -> sources*	
 		
 	module-remove-source(|num):
-		Module(modId, time, block, sources*) -> Module(modId, time, block, newSources*)
+		Module(modId, time, location, sources*) -> Module(modId, time, location, newSources*)
 		with
 			newSource := <index(|num); intpair-setx(|0)> sources*;
 			newSources* := <set-index> (<subt> (num, 1), newSource, sources*)
 	
 	module-add-source(|modNum, portNum):
-		Module(modId, time, block, source*) -> Module(modId, time, block, newSource*)
+		Module(modId, time, location, source*) -> Module(modId, time, location, newSource*)
 		with
 			newElem* := [IntPair(<int-to-string> modNum, <int-to-string> portNum)];
 			newSource* := [source* | newElem*]
 			
 	module-add-sources(|newSources*):
-		Module(modId, time, block, sources*) -> Module(modId, time, block, resSources*)
+		Module(modId, time, location, sources*) -> Module(modId, time, location, resSources*)
 		with
 			resSources* := [sources*, newSources*]
 			
 	module-replace-source(|toReplace, replaceWith):
-	Module(modId, time, block, sources*) -> Module(modId, time, block, newSources*)
+	Module(modId, time, location, sources*) -> Module(modId, time, location, newSources*)
 	with
 		newSources* := <map(intpair-replace(|toReplace, replaceWith))> sources*
 		
 	module-set-source(|index, source):
-	Module(modId, time, block, sources*) -> Module(modId, time, block, newSources*)
+	Module(modId, time, location, sources*) -> Module(modId, time, location, newSources*)
 	with
 		length := <length> sources*;
 		if <gt> (index, length) then
@@ -124,7 +124,7 @@ rules
 		end
 	
 	module-set-in-source(|sourceNum, inNum):
-		Module(modId, time, block, sources*) -> Module(modId, time, block, newSources*)
+		Module(modId, time, location, sources*) -> Module(modId, time, location, newSources*)
 		with
 			length := <length> sources*;
 			if <gt> (sourceNum, length) then
@@ -139,8 +139,8 @@ rules
 		mod* -> newmod*
 		with
 			bl := <modules-get-bottom-left(|ast)> mod*
-			; block := Block(<intpair-neg>bl, "0", "0")
-			; newmod* := <modules-transform> (mod*, block)
+			; location := Location(<intpair-neg>bl, "0", "0")
+			; newmod* := <modules-transform> (mod*, location)
 	
 	modules-get-bottom-left(|ast):
 		mod* -> bl
@@ -149,11 +149,11 @@ rules
 			; bl := <intpairs-get-bottom-left> list*
 	
 	module-get-bottom-left(|ast):
-		Module(modId, time, block, _) -> bl
+		Module(modId, time, location, _) -> bl
 		with
-			libmod := <get-libmod(|<string-to-int>modId)> ast
-			; size := <libmod-get-size> libmod
-			; bl := <block-get-bottom-left(|size)> block
+			funcblock := <get-funcblock(|<string-to-int>modId)> ast
+			; size := <funcblock-get-size> funcblock
+			; bl := <location-get-bottom-left(|size)> location
 	
 	modules-get-top-right(|ast):
 		mod* -> tr
@@ -162,11 +162,11 @@ rules
 			; tr := <intpairs-get-top-right> list*
 	
 	module-get-top-right(|ast):
-		Module(modId, time, block, _) -> tr
+		Module(modId, time, location, _) -> tr
 		with
-			libmod := <get-libmod(|<string-to-int>modId)> ast
-			; size := <libmod-get-size> libmod
-			; tr := <block-get-top-right(|size)> block
+			funcblock := <get-funcblock(|<string-to-int>modId)> ast
+			; size := <funcblock-get-size> funcblock
+			; tr := <location-get-top-right(|size)> location
 			
 	modules-link-by-intpairs:
 		(mod*, input*, pair*) -> <foldl(modules-link-by-intpair)> (<zip>(input*, pair*), mod*)
@@ -179,7 +179,7 @@ rules
 			; newmod* := <conc> (<take(|<subt>(n,1))> mod*, [new], <drop(|n)> mod*)
 			  
 	module-link(|num, pair):
-		Module(modId, time, block, source*) -> Module(modId, time, block, newsrc*)
+		Module(modId, time, location, source*) -> Module(modId, time, location, newsrc*)
 		with
 			len := <length> source*
 			; n := <string-to-int> num
@@ -200,6 +200,6 @@ rules
 	    	; newmod* := <zip(increase-modules-num-by)> (temp*, list*)
 	    	  
 	module-unmark-source:
-		Module(modId, time, block, source*) -> Module(modId, time, block, newsrc*)
+		Module(modId, time, location, source*) -> Module(modId, time, location, newsrc*)
 		with
 			newsrc* := <map(intpair-unmark)> source*

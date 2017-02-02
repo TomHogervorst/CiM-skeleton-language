@@ -1,15 +1,15 @@
-module graphics/DrawBlock
+module graphics/DrawLocation
 
 imports
   Common
   IntPair
   
 sorts
-  DrawBlock
+  DrawLocation
   DrawConnection
   
 context-free start-symbols
-  DrawBlock
+  DrawLocation
   DrawConnection
   
 template options
@@ -20,4 +20,4 @@ context-free syntax
     DrawConnection.DrawConnection = <DrawConnection(ps, <INT>, <INT>, <INT>, <INT>);>
 
   //              xpos, ypos, xsize, ysize, angle, mir
-  DrawBlock.DrawBlock = <DrawBlock(ps, <INT>, <INT>, <INT>, <INT>, <INT>, <INT>);>
+  DrawLocation.DrawLocation = <DrawLocation(ps, <INT>, <INT>, <INT>, <INT>, <INT>, <INT>);>

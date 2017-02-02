@@ -5,7 +5,7 @@ imports
   libstratego-gpp
   lib/runtime/tmpl/pp
   src-gen/signatures/IntPair-sig
-  block-trans
+  location-trans
   helper
 
 rules
@@ -132,12 +132,12 @@ rules
 	intpair-transform(|pos, angle, mir):
 		origin -> <intpair-mirror(|mir); intpair-rotate(|angle); intpair-add(|pos)> origin
   
-	intpair-transform(|block):
+	intpair-transform(|location):
 		origin -> <intpair-transform(|pos, angle, mir)> origin
 		with
-			pos := <block-get-pos> block
-			; angle := <block-get-angle> block
-			; mir := <block-get-mir> block
+			pos := <location-get-pos> location
+			; angle := <location-get-angle> location
+			; mir := <location-get-mir> location
 			  
 	intpair-replace(|toReplace, replaceWith):
 		IntPair(x, y) -> res

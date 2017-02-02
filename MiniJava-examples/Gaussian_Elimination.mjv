@@ -1,36 +1,36 @@
-LibMod(add, (40,32), 180, 125, ((0,0), 90, 1)((0,32), 270, 0), ((40,0), 90, 0));
-LibMod(mul, (256,160), 804, 137, ((0,80), 90, 1)((0,0), 90, 1), ((256,160), 270, 1));
-LibMod(subt, (40,32), 180, 125, ((0,0), 90, 1)((0,32), 270, 0), ((40,0), 90, 0));
-LibMod(div, (201,280), 6064, 5190, ((0,32), 90, 1)((0,96), 270, 0), ((201,248), 270, 1));
-LibMod(gt, (128, 192), 27, 93, ((0,0), 90, 1)((64,0), 90, 1), ((128, 192), 270, 1));
-LibMod(mux2, (96, 97), 5, 22, ((0,1), 90, 1)((0,33), 90, 1)((0,0), 0, 0), ((96,97), 270, 1));
-LibMod(LUT, (405,106), 7, 603, ((0,0), 90, 1)((0,37), 90, 1),((405,106), 270, 1));
-LibMod(GO, (288,256), 36, 67, ((0,0), 90, 1)((0,256), 270, 0),((288,97), 270, 1));
-LibMod(gap, (40,32), 180, 125, ((0,0), 90, 1), ((40,0), 90, 0));
-LibMod(sort2, (288,256), 36, 137, ((0,0), 90, 1)((0,256), 270, 0), ((288,97), 270, 1)((288,191), 90, 0));
-LibMod(NW, (1022, 429), 441, 1112, ((0, 0), 90, 1) ((0, 138), 90, 1) ((0, 0), 0, 0)  ((32, 0), 0, 0)  ((64, 0), 0, 0),  ((1022, 0), 90, 0) ((32, 428), 180, 1) ((893, 427), 0, 0) ((925, 97), 90, 1));
+FuncBlock(add, (40,32), 180, 125, ((0,0), 90, 1)((0,32), 270, 0), ((40,0), 90, 0));
+FuncBlock(mul, (256,160), 804, 137, ((0,80), 90, 1)((0,0), 90, 1), ((256,160), 270, 1));
+FuncBlock(subt, (40,32), 180, 125, ((0,0), 90, 1)((0,32), 270, 0), ((40,0), 90, 0));
+FuncBlock(div, (201,280), 6064, 5190, ((0,32), 90, 1)((0,96), 270, 0), ((201,248), 270, 1));
+FuncBlock(gt, (128, 192), 27, 93, ((0,0), 90, 1)((64,0), 90, 1), ((128, 192), 270, 1));
+FuncBlock(mux2, (96, 97), 5, 22, ((0,1), 90, 1)((0,33), 90, 1)((0,0), 0, 0), ((96,97), 270, 1));
+FuncBlock(LUT, (405,106), 7, 603, ((0,0), 90, 1)((0,37), 90, 1),((405,106), 270, 1));
+FuncBlock(GO, (288,256), 36, 67, ((0,0), 90, 1)((0,256), 270, 0),((288,97), 270, 1));
+FuncBlock(gap, (40,32), 180, 125, ((0,0), 90, 1), ((40,0), 90, 0));
+FuncBlock(sort2, (288,256), 36, 137, ((0,0), 90, 1)((0,256), 270, 0), ((288,97), 270, 1)((288,191), 90, 0));
+FuncBlock(NW, (1022, 429), 441, 1112, ((0, 0), 90, 1) ((0, 138), 90, 1) ((0, 0), 0, 0)  ((32, 0), 0, 0)  ((64, 0), 0, 0),  ((1022, 0), 90, 0) ((32, 428), 180, 1) ((893, 427), 0, 0) ((925, 97), 90, 1));
 
 component main<in[16] | out[10]>(){
 	int i;
 	int n = 4;
-	in[0:n^2] => foldr<*_I_*>(map<i = GE_blocks(i, foldr<+>(n+1:i+1), foldr<+>(n+1:i+2))>(n:1)) => out[0:foldr<+>(0:n+1)];//(repeat[foldr<+>(5:5-i+1)](NOP) ++ GE_connection(5-i)) *_I_* repeat[foldr<+>(5:5-i)](NOP) ++ repeat[4 - i](GE_block(4 - i))>(1:4)); 
+	in[0:n^2] => foldr<*_I_*>(map<i = GE_Locations(i, foldr<+>(n+1:i+1), foldr<+>(n+1:i+2))>(n:1)) => out[0:foldr<+>(0:n+1)];//(repeat[foldr<+>(5:5-i+1)](NOP) ++ GE_connection(5-i)) *_I_* repeat[foldr<+>(5:5-i)](NOP) ++ repeat[4 - i](GE_Location(4 - i))>(1:4)); 
 }
 
-component GE_blocks<in[(n+1)^2+prev_nops]| out[n^2 + nops]>(int n, int nops, int prev_nops){
+component GE_Locations<in[(n+1)^2+prev_nops]| out[n^2 + nops]>(int n, int nops, int prev_nops){
 	int i;
 	in[0:nops] => out[0:nops];
-	in[copy[n](prev_nops:prev_nops+(n+1)^2)] => map<i = GE_block(n, i)>(0 : n) => out[nops:nops+n^2];
+	in[copy[n](prev_nops:prev_nops+(n+1)^2)] => map<i = GE_Location(n, i)>(0 : n) => out[nops:nops+n^2];
 }
 
-component GE_block<in[(n+1)^2]| out[n]>(int n, int i){
+component GE_Location<in[(n+1)^2]| out[n]>(int n, int i){
 	signal divres[n];
 	signal multres[n];
 	
-	in[(i+1)*(n+1)] ++ in[0] => div *_I_* broadcast_block(n) => divres[0:n];
+	in[(i+1)*(n+1)] ++ in[0] => div *_I_* broadcast_Location(n) => divres[0:n];
 	zip(divres[0:n], in[1 : n+1]) => copy[n](mul) => multres[0:n];
 	zip(in[(i+1)*(n+1)+1 : (i+2) * (n+1)], multres[0:n]) => copy[n](subt) => out[0:n]; 
 }
 
-component broadcast_block<in[1] | out[n]>(int n){
+component broadcast_Location<in[1] | out[n]>(int n){
 	in[copy[n](0)] => out[0:n];
 }

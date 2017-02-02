@@ -19,11 +19,11 @@ rules
 	statement-get-sigdecls: 
 		statement -> <keep-if(statement-is-sig-decl)> statement
 		
-	statement-get-entity-assigns:
-		Accolades(statements*) -> <map(keep-if(statement-is-entity-assign)); concat> statements*
+	statement-get-component-assigns:
+		Accolades(statements*) -> <map(keep-if(statement-is-component-assign)); concat> statements*
 		
-	statement-get-entity-assigns: 
-		statement -> <keep-if(statement-is-entity-assign)> statement
+	statement-get-component-assigns: 
+		statement -> <keep-if(statement-is-component-assign)> statement
 	
 	statement-get-skel-assigns:
 		Accolades(statements*) -> <map(keep-if(statement-is-skel-assign)); concat> statements*
@@ -46,25 +46,25 @@ rules
 	statement-is-sig-decl:
 		otherStatement -> <fail>
 	
-	statement-is-entity-assign:
+	statement-is-component-assign:
 		VarAssign(_, _) -> 1
 		
-	statement-is-entity-assign:
+	statement-is-component-assign:
 		ArrayAssign(_, _, _) -> 1	
 		
-	statement-is-entity-assign:
+	statement-is-component-assign:
 		SignalAssign(_, _, _, _) -> 1
 		
-	statement-is-entity-assign:
-		IfThenElse(_, statements1*, statements2*) -> <map(statement-is-entity-assign)>[statements1*, statements2*]
+	statement-is-component-assign:
+		IfThenElse(_, statements1*, statements2*) -> <map(statement-is-component-assign)>[statements1*, statements2*]
 		
-	statement-is-entity-assign:
-		WhileLoop(_, statements*) -> <map(statement-is-entity-assign)> statements*
+	statement-is-component-assign:
+		WhileLoop(_, statements*) -> <map(statement-is-component-assign)> statements*
 		
-	statement-is-entity-assign:
-		ForLoop(_, _, statements*) -> <map(statement-is-entity-assign)> statements*
+	statement-is-component-assign:
+		ForLoop(_, _, statements*) -> <map(statement-is-component-assign)> statements*
 	
-	statement-is-entity-assign:
+	statement-is-component-assign:
 		otherStatement -> <fail>
 		
 	statement-is-skel-assign:

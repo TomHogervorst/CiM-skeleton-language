@@ -1,7 +1,7 @@
 module deref
 
 imports
-	src-gen/signatures/Entity-sig
+	src-gen/signatures/Component-sig
 	src-gen/signatures/MiniJava-sig
 	src-gen/signatures/Expression-sig
     src-gen/signatures/Statement-sig
@@ -47,7 +47,7 @@ rules
 			resSigArray* := <set-in-out-sigs(|argArray*); delete-unused-sigs>(insigs*, outsigs*, newSigArray*)
 			
 	unroll-and-dereference(|ast, argArray*, compTuples*):
-		Entity(name, insigs*, outsigs*, _, statement) -> (resCompTuples*, resSigArray*)
+		Component(name, insigs*, outsigs*, _, statement) -> (resCompTuples*, resSigArray*)
 		with
 			varsLength := <statement-get-vardecls; length> statement;
 			signalsLength := <statement-get-sigdecls; length> statement;
@@ -68,7 +68,7 @@ rules
 			resSigArray* := <bottomup(try(subt-sigref(|<add>(<length> insigs*, <length> outsigs*))))> completeSigArray*
 			
 	set-in-sigs(|varArray*):
-		(additionalLength, [SigArg(name, exp)| sigArgs*], sigArray*) -> resSigArray*
+		(additionalLength, [SigParam(name, exp)| sigArgs*], sigArray*) -> resSigArray*
 		with
 			index := <get-sig-index> name;
 			newSigArray* := <bottomup(try(replace-signal(|index, additionalLength)))> sigArray*;
@@ -87,7 +87,7 @@ rules
 			end
 			
 	set-out-sig(|varArray*):
-		(additionalLength, [SigArg(name, exp) | sigArgs*], sigArray*) -> resSig
+		(additionalLength, [SigParam(name, exp) | sigArgs*], sigArray*) -> resSig
 		with
 			index := <get-sig-index> name;
 			thisSig:= <index(|index); replace-assign(|index, additionalLength)> sigArray*;
@@ -279,7 +279,7 @@ rules
 	*/
 	
 	deref-by-type(|ast, modArray*, varArray*, compTuples*):
-		(Array(Skeleton()), exp) -> (resCompTuples*, elem*)
+		(Array(Comp()), exp) -> (resCompTuples*, elem*)
 		with
 			(resCompTuples*, elem*) := <deref-skel(|ast, varArray*, compTuples*)> exp
 	
@@ -289,7 +289,7 @@ rules
 			(resCompTuples*, elem*) := <array-to-list(|ast, modArray*, varArray*, compTuples*, type)> exp
 			
 	deref-by-type(|ast, modArray*, varArray*, compTuples*):
-		(Skeleton(), exp) -> (resCompTuples*, elem)
+		(Comp(), exp) -> (resCompTuples*, elem)
 		with
 			(resCompTuples*, elem):= <deref-skel(|ast, varArray*, compTuples*)> exp
 			
@@ -373,13 +373,12 @@ rules
 	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
 		Repeat(num, exp) -> (resCompTuples*, res*)
 		with
-			<debug> num;
-			(resCompTuples*, elem) := <debug; deref-by-type(|ast, modArray*, varArray*, compTuples*); debug>(Array(type), exp);
+			(resCompTuples*, elem) := <deref-by-type(|ast, modArray*, varArray*, compTuples*)>(Array(type), exp);
 			intSize := <exp-to-int(|"Error",varArray*, [])> num;
-			tempRes* := <copy; debug>(intSize, elem);
+			tempRes* := <copy>(intSize, elem);
 			if <is-list> elem then
 				emptyArray := [];
-				res* := <concat; debug>[tempRes*, emptyArray]
+				res* := <concat>[tempRes*, emptyArray]
 			else
 				res* := tempRes*
 			end
@@ -402,7 +401,7 @@ rules
 	array-to-list(|ast, modArray*, varArray*, compTuples*, type):
 		elem -> (newCompTuples*, res)
 		with
-			(newCompTuples*, value) := <debug; deref-by-type(|ast, modArray*, varArray*, compTuples*)>(type, elem);
+			(newCompTuples*, value) := <deref-by-type(|ast, modArray*, varArray*, compTuples*)>(type, elem);
 			res := [value]
 	
 	map-to-list(|ast, modArray*, varArray*, compTuples*, type):
@@ -466,7 +465,7 @@ rules
 	*/
 	
 	deref-skel(|ast, varArray*, compTuples*):
-		LibModNum(num) -> (compTuples*, LibModNum(num))
+		FuncBlockNum(num) -> (compTuples*, FuncBlockNum(num))
 		
 	deref-skel(|ast, varArray*, compTuples*):
 		VarRef(name) -> (compTuples*, res)
@@ -475,7 +474,7 @@ rules
 				res := <index(|<get-var-index> name)>varArray*
 			else
 				num := <get-lib-index; int-to-string> name;
-				res := LibModNum(num)
+				res := FuncBlockNum(num)
 			end
 			
 	deref-skel(|ast, varArray*, compTuples*):
@@ -519,7 +518,7 @@ rules
 	deref-skel(|ast, varArray*, compTuples*):
 		arrayOfSkels -> (resCompTuples*, res)
 		with
-			(newCompTuples*, skelArray) := <array-to-list(|ast, [], varArray*, compTuples*, Skeleton())> arrayOfSkels;
+			(newCompTuples*, skelArray) := <array-to-list(|ast, [], varArray*, compTuples*, Comp())> arrayOfSkels;
 			(resCompTuples*, res) := <deref-skels(|ast, varArray*, newCompTuples*)> skelArray
 			
 	deref-skels(|ast, varArray*, compTuples*):

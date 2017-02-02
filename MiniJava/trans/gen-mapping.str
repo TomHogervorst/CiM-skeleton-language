@@ -8,9 +8,9 @@ imports
   src-gen/signatures/mapped/-
   include/MiniJava-parenthesize
   program-trans
-  libmod-trans
+  funcblock-trans
   intpair-trans
-  block-trans
+  location-trans
   module-trans
   gen-dfg
   system-trans
@@ -62,7 +62,7 @@ rules
 		[mod | moduleList*] -> res*
 		with
 			number := <module-get-id; string-to-int> mod
-			;lib := <get-libmod(|number)> ast
+			;lib := <get-funcblock(|number)> ast
 			;(outputPort, (numString, mappedModule)) := <module-to-mapping(|lib, num, inputs*, outputPorts*)> mod
 			;if <lookup>(num, outputs*) then
 			  mappedModule* := [OutputModule(<lookup; int-to-string>(num, outputs*), mappedModule)]
@@ -80,18 +80,18 @@ rules
 
 			   
 	module-to-mapping(|lib, num, inputs*, outputPorts*):
-		Module(typeNum, time, block, sources*) -> (outputPort, res)
+		Module(typeNum, time, location, sources*) -> (outputPort, res)
 		with
-			size := <libmod-get-input-num> lib
-			;rotation := <block-get-angle> block
-			;moduleSize := <libmod-get-size; rotate-if-needed(|rotation)> lib
-			; moduleTime := <libmod-get-latency> lib
-			; energy := <libmod-get-energy> lib
-			; inputPorts* := <libmod-get-inputs; map(block-inherit(|block); map-block(|IntPair("32","1")))> lib
-			; outputPort := <libmod-get-outputs; index(|1); block-inherit(|block); map-block(|IntPair("32","1"))> lib
+			size := <funcblock-get-input-num> lib
+			;rotation := <location-get-angle> location
+			;moduleSize := <funcblock-get-size; rotate-if-needed(|rotation)> lib
+			; moduleTime := <funcblock-get-latency> lib
+			; energy := <funcblock-get-energy> lib
+			; inputPorts* := <funcblock-get-inputs; map(location-inherit(|location); map-location(|IntPair("32","1")))> lib
+			; outputPort := <funcblock-get-outputs; index(|1); location-inherit(|location); map-location(|IntPair("32","1"))> lib
 			;  inList* := <inputs-to-list(|num, inputs*)>sources*
 			; numString := <int-to-string> num
-			; mappedPosition := <map-block(|<libmod-get-size> lib)> block
+			; mappedPosition := <map-location(|<funcblock-get-size> lib)> location
 			; connections* := <copy>(<length> inputPorts*, 1)
 			; mappedInputPorts* := < map-input-ports>( inList*, connections*, inputPorts*)
 			;res := (numString, MappedModule(typeNum, mappedPosition, <intpair-getx> moduleSize, <intpair-gety> moduleSize, time, moduleTime, energy, outputPort, mappedInputPorts*))
@@ -116,22 +116,22 @@ rules
 				<debug(!"Invalid angle: ")> angle
 			end
 			
-	map-block(|size):
-		Block(IntPair(x, y), rot, mir) -> MappedBlock(<intpair-getx> newPos, <intpair-gety> newPos, rot)
+	map-location(|size):
+		Location(IntPair(x, y), rot, mir) -> MappedLocation(<intpair-getx> newPos, <intpair-gety> newPos, rot)
 		with
-			newPos := <block-get-bottom-left(|size)> Block(IntPair(x, y), rot, mir)
+			newPos := <location-get-bottom-left(|size)> Location(IntPair(x, y), rot, mir)
 		
 	map-input-port:
-		(("in", inNum), num, block) -> MappedInputPort(inNum, num, block)
+		(("in", inNum), num, Location) -> MappedInputPort(inNum, num, Location)
 		
 	map-input-port:
-		(("m", mNum), num, block) -> MappedModulePort(mNum, num, block)
+		(("m", mNum), num, Location) -> MappedModulePort(mNum, num, Location)
 		
 	map-input-ports:
-		([tuple | tuples*], [num | nums*], [block | blocks*]) -> res*
+		([tuple | tuples*], [num | nums*], [location | locations*]) -> res*
 		with
-			thisRes* := [<map-input-port>(tuple, num, block)];
-			restRes* := <map-input-ports>(tuples*, nums*, blocks*);
+			thisRes* := [<map-input-port>(tuple, num, location)];
+			restRes* := <map-input-ports>(tuples*, nums*, locations*);
 			res* := [thisRes*, restRes*]
 	
 	map-input-ports:
@@ -181,11 +181,11 @@ rules
 			res* := []
 			
 	/*
-		Find the length in cycles between two ports in the mapped block format
+		Find the length in cycles between two ports in the mapped location format
 		This function assumes that every port is 32 long.
 	*/
 	connection-length:
-		(MappedBlock(xout, yout, angleout), MappedBlock(xin, yin, anglein)) -> res
+		(MappedLocation(xout, yout, angleout), MappedLocation(xin, yin, anglein)) -> res
 		with
 			switch !angleout
 			case ?"0":

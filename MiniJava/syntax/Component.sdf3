@@ -1,0 +1,29 @@
+module Component
+
+imports
+  Common
+  Statement
+  Type
+  Expression
+  
+sorts
+  MainComponent
+ Component
+  
+context-free start-symbols
+  MainComponent
+  Component
+  
+template options
+  tokenize: "{("
+  keyword -/- [a-zA-Z]
+ 
+context-free syntax
+
+ParamDecl.ParamDecl = <<Type> <ID>>
+SigParam.SigParam = <<ID>[<Exp>]>
+SigParam.SingleSigParam = <<ID>>
+
+MainComponent.Main = <component main\<<{SigParam ", "}+> | <{SigParam ", "}+>\>(<{ParamDecl ", "}*>)<Statement>>
+
+Component.Component = <component <ID>\<<{SigParam ", "}+> | <{SigParam ", "}+>\>(<{ParamDecl ", "}*>)<Statement>>

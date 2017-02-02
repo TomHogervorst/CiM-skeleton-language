@@ -10,7 +10,7 @@ type rules
   True(): Boolean()
   False(): Boolean()
   
-  Array(Skeleton()): Skeleton()
+  Array(Comp()): Comp()
   
   VarRef(r): ty
 	where definition of r: ty
@@ -41,7 +41,7 @@ type rules
   EqualTo(): (Integer(), Boolean())
   And(): (Boolean(), Boolean())
   Or(): (Boolean(), Boolean())
-  ConOp(op): (Array(Skeleton()), Skeleton())
+  ConOp(op): (Array(Comp()), Comp())
   MaxOf(): (Integer(), Integer())
   
   Log2(exp): Integer()
@@ -145,9 +145,9 @@ type rules
   	Skeleton typing rules
   */
   
-  Nop(): Skeleton()
+  Nop(): Comp()
   
-  LibModNum(num): Skeleton()
+  FuncBlockNum(num): Comp()
   
   Repeat(exp1, exp2): Array(ety2)
   where exp2: ety2
@@ -157,23 +157,23 @@ type rules
   and ty == Integer()
   else error "Integer expected here." on exp
   
-  Connect(skel1, conop, skel2): Array(Skeleton())
+  Connect(skel1, conop, skel2): Array(Comp())
   
   Connect(skel1, conop, skel2):-
   where skel1: ty
-    and (ty == Array(Skeleton()) or ty == Skeleton())
+    and (ty == Array(Comp()) or ty == Comp())
   else error "Can only connect two (arrays of) skeletons." on skel1
   
   Connect(skel1, conop, skel2):-
   where skel2: ty
-    and (ty == Array(Skeleton()) or ty == Skeleton())
+    and (ty == Array(Comp()) or ty == Comp())
   else error "Can only connect two (arrays of) skeletons." on skel2
   
-  CompRef(entity, args*): ty
-  where definition of entity: (ty, arg_ty*)
+  CompRef(component, args*): ty
+  where definition of component: (ty, arg_ty*)
 
-  CompRef(entity, args*):-
-  where definition of entity: (ty, expected_ty*)
+  CompRef(component, args*):-
+  where definition of component: (ty, expected_ty*)
 	and args*: args_ty*
 	and (args_ty* == expected_ty*)
   else error $[Expected arguments of types [expected_ty*] instead of arguments of types [args_ty*]] on args*
@@ -272,14 +272,14 @@ type rules
   CompAttr(modRef, attr):rety
   where attr: rety
   
-  Outport(_): Port()
-  Inport(_): Port()
-  Outports(): Port()
-  Inports(): Port()
-  GlobalOutport(_): Port()
-  GlobalInport(_): Port()
-  GlobalOutports(): Port()
-  GlobalInports(): Port()
+  Outport(_): Comp()
+  Inport(_): Comp()
+  Outports(): Comp()
+  Inports(): Comp()
+  GlobalOutport(_): Comp()
+  GlobalInport(_): Comp()
+  GlobalOutports():Comp()
+  GlobalInports(): Comp()
   OutportPos(_): Coordinate()
   OutportMir(_): Integer()
   OutportRot(_): Integer()
@@ -348,9 +348,9 @@ type rules
  	Declarations typing rules
  */
  
-  ArgDecl(ty, arg): ty
+  ParamDecl(ty, arg): ty
   
-  SigArg(_, exp):-
+  SigParam(_, exp):-
     where exp: ty
  	and ty == Integer()
   else error "The size of a signal should be a integer." on exp

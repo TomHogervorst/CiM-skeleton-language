@@ -3,9 +3,9 @@ module MiniJava
 imports
   
   Common
-  LibMod
+  FuncBlock
   Statement
-  Entity
+  Component
   Expression
   Signal
   Skeleton
@@ -17,8 +17,8 @@ sorts
 context-free start-symbols
   
   Program
-  MainEntity
-  Entity
+  MainComponent
+  Component
   Skeleton
   Statement
   Exp
@@ -31,11 +31,11 @@ template options
 context-free syntax
   
   Program.Program = <
-<{LibMod "\n"}*;hide>
+<{FuncBlock "\n"}*;hide>
 
-<MainEntity>
+<MainComponent>
 
-<{Entity "\n\n"}*>
+<{Component "\n\n"}*>
 
 <{Skeleton "\n\n"}*>
 >

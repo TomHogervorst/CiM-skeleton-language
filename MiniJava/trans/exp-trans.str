@@ -8,7 +8,7 @@ imports
 	lib
 	system-trans
 	module-trans
-	block-trans
+	location-trans
 	
 	
 rules
@@ -153,46 +153,46 @@ rules
 		Position() -> <system-get-modules; modules-get-bottom-left(|ast); intpair-to-tuple> system
 	
 	get-attr(|ast, system, varArray*):	
-		OutportPos(num) -> <block-get-bottom-left(|IntPair("32", "1")); intpair-to-tuple> portBlock
+		OutportPos(num) -> <location-get-bottom-left(|IntPair("32", "1")); intpair-to-tuple> portLocation
 		with
 			intNum := <exp-to-int(|"error", varArray*, []); inc> num;
 			outputTuple := <system-get-outputs; index(|intNum)> system;
-			portBlock := <system-get-outport(|ast, system)> outputTuple
+			portLocation := <system-get-outport(|ast, system)> outputTuple
 	
 	get-attr(|ast, system, varArray*):	
-		OutportRot(num) -> <block-get-angle> portBlock
+		OutportRot(num) -> <location-get-angle> portLocation
 		with
 			intNum := <exp-to-int(|"error", varArray*, []); inc> num;
 			outputTuple := <system-get-outputs; index(|intNum)> system;
-			portBlock := <system-get-outport(|ast, system)> outputTuple	
+			portLocation := <system-get-outport(|ast, system)> outputTuple	
 			
 	get-attr(|ast, system, varArray*):	
-		OutportMir(num) -> <block-get-mir> portBlock
+		OutportMir(num) -> <location-get-mir> portLocation
 		with
 			intNum := <exp-to-int(|"error", varArray*, []); inc> num;
 			outputTuple := <system-get-outputs; index(|intNum)> system;
-			portBlock := <system-get-outport(|ast, system)> outputTuple
+			portLocation := <system-get-outport(|ast, system)> outputTuple
 			
 	get-attr(|ast, system, varArray*):	
-		InportPos(num) -> <block-get-bottom-left(|IntPair("32", "1")); intpair-to-tuple> portBlock
+		InportPos(num) -> <location-get-bottom-left(|IntPair("32", "1")); intpair-to-tuple> portLocation
 		with
 			intNum := <exp-to-int(|"error", varArray*, []); inc> num;
 			inputTuple := <system-get-inputs; map(input-get-inputs); concat; index(|intNum)> system;
-			portBlock := <system-get-inport(|ast, system)> inputTuple
+			portLocation := <system-get-inport(|ast, system)> inputTuple
 		
 	get-attr(|ast, system, varArray*):	
-		InportRot(num) -> <block-get-angle> portBlock
+		InportRot(num) -> <location-get-angle> portLocation
 		with
 			intNum := <exp-to-int(|"error", varArray*, []); inc> num;
 			inputTuple := <system-get-inputs; map(input-get-inputs); concat; index(|intNum)> system;
-			portBlock := <system-get-inport(|ast, system)> inputTuple
+			portLocation := <system-get-inport(|ast, system)> inputTuple
 			
 	get-attr(|ast, system, varArray*):	
-		InportMir(num) -> <block-get-mir> portBlock
+		InportMir(num) -> <location-get-mir> portLocation
 		with
 			intNum := <exp-to-int(|"error", varArray*, []); inc> num;
 			inputTuple := <system-get-inputs; map(input-get-inputs); concat; index(|intNum)> system;
-			portBlock := <system-get-inport(|ast, system)> inputTuple
+			portLocation := <system-get-inport(|ast, system)> inputTuple
 		
 	get-attr(|ast, system, varArray*):
 		Size() -> <system-get-size; intpair-to-tuple> system

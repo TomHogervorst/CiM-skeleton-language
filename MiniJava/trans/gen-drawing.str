@@ -8,9 +8,9 @@ imports
   src-gen/signatures/-
   include/MiniJava-parenthesize
   program-trans
-  libmod-trans
+  funcblock-trans
   intpair-trans
-  block-trans
+  location-trans
   module-trans
   trans/gen-mapping
   trans/gen-dfg
@@ -46,7 +46,7 @@ rules
 		[Module | ModuleList*] -> (res*, resOutputPorts*)
 		with
 			number := <module-get-id; string-to-int> Module
-			;lib := <get-libmod(|number)> ast
+			;lib := <get-funcblock(|number)> ast
 			;(mappedModule*, additionalOutputPorts) := <module-to-drawing(|lib, outputPorts*)> Module
 			; newOutputPorts* := [outputPorts*, additionalOutputPorts]
 			;(mappedModules*, resOutputPorts*) := <modules-to-drawing(|ast, newOutputPorts*)> ModuleList*
@@ -59,25 +59,25 @@ rules
 
 			   
 	module-to-drawing(|lib,  allOutputPorts*):
-		Module(typeNum, time, block, sources*) -> (res*, outputPorts*)
+		Module(typeNum, time, location, sources*) -> (res*, outputPorts*)
 		with
-			rotation := <block-get-angle> block
-			;moduleSize := <libmod-get-size> lib
-			; inputPorts* := <libmod-get-inputs; map(block-inherit(|block))> lib
-			; outputPorts* := <libmod-get-outputs; map(block-inherit(|block))> lib
-			; drawnModule := <draw-block> (block, moduleSize)
+			rotation := <location-get-angle> location
+			;moduleSize := <funcblock-get-size> lib
+			; inputPorts* := <funcblock-get-inputs; map(location-inherit(|location))> lib
+			; outputPorts* := <funcblock-get-outputs; map(location-inherit(|location))> lib
+			; drawnModule := <draw-location> (location, moduleSize)
 			; connections* := <draw-connections(|allOutputPorts*)>(sources*, inputPorts*)
 			;res* := [DrawModule(drawnModule, <map(draw-port)>inputPorts*, <map(draw-port)>outputPorts*, connections*)]
 	
-	draw-block:
-		(Block(IntPair(x, y), angle, mir), IntPair(xsize, ysize)) -> res
+	draw-location:
+		(Location(IntPair(x, y), angle, mir), IntPair(xsize, ysize)) -> res
 		with
-			res := DrawBlock(x, y, xsize, ysize, angle, mir)
+			res := DrawLocation(x, y, xsize, ysize, angle, mir)
 			
 	draw-port:
 		port  -> res
 		with
-			res := <draw-block>(port, IntPair("32", "1"))
+			res := <draw-location>(port, IntPair("32", "1"))
 			
 	draw-connections(|allOutputPorts*):
 		([IntPair(modNum, portNum) | sources*], [inputPort | inputPorts*]) -> res*
@@ -99,7 +99,7 @@ rules
 			res* := []
 			
 	get-middle-of-port:
-		Block(IntPair(x, y), angle, mir) -> (resX, resY)
+		Location(IntPair(x, y), angle, mir) -> (resX, resY)
 		with
 			switch !angle
 			case ?"0":

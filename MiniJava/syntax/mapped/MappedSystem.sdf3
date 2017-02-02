@@ -15,7 +15,7 @@ template options
   tokenize: "[]"
 
 context-free syntax
-  //              LibModId,start,floorplan,  source
+  //              FuncBlockId,start,floorplan,  source
   IntDecl.IntDecl = <m<INT>>
   MappedSystem.SingleModule = <m<INT> = Module(<MappedModule>)>
   MappedSystem.OutputModule = <out[<INT>] = Module(<MappedModule>)>

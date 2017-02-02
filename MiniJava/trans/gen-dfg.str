@@ -7,16 +7,16 @@ imports
   src-gen/signatures/Expression-sig
   src-gen/signatures/System-sig
   src-gen/signatures/Module-sig
-  src-gen/signatures/Block-sig
+  src-gen/signatures/Location-sig
   src-gen/signatures/IntPair-sig
   src-gen/signatures/Statement-sig
   src-gen/signatures/Signal-sig
   src-gen/signatures/Skeleton-sig
   src-gen/signatures/Type-sig
   program-trans
-  libmod-trans
+  funcblock-trans
   intpair-trans
-  block-trans
+  location-trans
   system-trans
   module-trans
   exp-trans
@@ -79,29 +79,29 @@ rules
      	//system := <system-map-together(|ast)>[system1, systems*]
    
    ast-to-dfg(|ast, systemTuples*, skeletons*):
-   	 LibModNum(string) -> System(module*, input*, output*, size, latency, energy)
+   	 FuncBlockNum(string) -> System(module*, input*, output*, size, latency, energy)
    	 with
    	 	num := <string-to-int> string
-   	 	; libmod := <get-libmod(|num)> ast
-   	 	; incrementArray* := <copy; map-with-index(tuple-getx)>(<libmod-get-output-num> libmod, 0)
-   	 	; sources* := <zip(tuple-to-intpair)>(<copy>(<libmod-get-output-num> libmod, 0), incrementArray*)
+   	 	; funcblock := <get-funcblock(|num)> ast
+   	 	; incrementArray* := <copy; map-with-index(tuple-getx)>(<funcblock-get-output-num> funcblock, 0)
+   	 	; sources* := <zip(tuple-to-intpair)>(<copy>(<funcblock-get-output-num> funcblock, 0), incrementArray*)
    	 	; module* := [Module(string,
    	 	  					 "0",
-   	 	  					 Block(IntPair("0", "0"), "0", "0"),
+   	 	  					 Location(IntPair("0", "0"), "0", "0"),
    	 	  					 sources*)
    	 	  			  ]
-   	 	; size := <libmod-get-size> libmod
-   	 	; latency := <libmod-get-latency> libmod
-   	 	; energy := <libmod-get-energy> libmod
-   	 	; tmpin* := <copy>(<libmod-get-input-num> libmod, Input([IntPair("1", "1")]))
+   	 	; size := <funcblock-get-size> funcblock
+   	 	; latency := <funcblock-get-latency> funcblock
+   	 	; energy := <funcblock-get-energy> funcblock
+   	 	; tmpin* := <copy>(<funcblock-get-input-num> funcblock, Input([IntPair("1", "1")]))
    	 	; input* := <nmap(input-sety|1)> tmpin*
-   	 	; tmpout* := <copy>(<libmod-get-output-num> libmod, IntPair("1", "1"))
+   	 	; tmpout* := <copy>(<funcblock-get-output-num> funcblock, IntPair("1", "1"))
    	 	; output* := <nmap(intpair-sety|1)> tmpout*
    	 	  
    ast-to-dfg(|ast, systemTuples*, skeletons*):
    	Nop() -> System([Module("0",
    	 	  					 "0",
-   	 	  					 Block(IntPair("0", "0"), "90", "1"),
+   	 	  					 Location(IntPair("0", "0"), "90", "1"),
    	 	  					 [])],
    	 	  			[Input([IntPair("1", "1")])], 
    	 	  			[IntPair("1", "1")], 
@@ -119,7 +119,7 @@ rules
    	 Connect(skel, HTree(),r) -> system
    	 with
    	 	// check whether this operator can be solved by H-tree layout
-   	 	(subsys*, n*) := <skeleton-get-tree-structure(|ast, systemTuples*, skeletons*); debug(!"Get tree structure result: ")> Connect(skel, HTree(), r)
+   	 	(subsys*, n*) := <skeleton-get-tree-structure(|ast, systemTuples*, skeletons*)> Connect(skel, HTree(), r)
    	 	; system := <system-tree-reduce(|ast)> (subsys*, n*)
    	 	  
    	ast-to-dfg(|ast, systemTuples*, skeletons*):
@@ -141,7 +141,7 @@ rules
 			res* := []
 			
 	connect-with-skeleton(|ast):
-		(sys1*, Skeleton(name, ModArg(usInSize, usOutSize, usName, usSize), ModArg(dsInSize, dsOutSize, dsName, dsSize), _, statement), sys2*) -> resSystems*
+		(sys1*, Skeleton(name, ModParam(usInSize, usOutSize, usName, usSize), ModParam(dsInSize, dsOutSize, dsName, dsSize), _, statement), sys2*) -> resSystems*
 		with
 			systems1* := <to-list> sys1*;
 			systems2* := <to-list> sys2*;
@@ -536,7 +536,7 @@ rules
 		(array*, Outport(outs*)) -> tuples*
 		with
 			if <gt>(<length> array*, 1) then
-				tuples* := <debug; fail>"Cannot connect outputs of multiple blocks at the same time."
+				tuples* := <debug; fail>"Cannot connect outputs of multiple locations at the same time."
 			else
 				(unused, outIndices*) := <array-to-list(|"Error", [], [], [], Integer())> outs*;
 				length := <length> outIndices*;
@@ -578,7 +578,7 @@ rules
 		(array*, Inport(ins*)) -> tuples*
 		with
 			if <gt>(<length> array*, 1) then
-				tuples* := <debug; fail>"Cannot connect inputs of multiple blocks at the same time."
+				tuples* := <debug; fail>"Cannot connect inputs of multiple locations at the same time."
 			else
 				(unused, inIndices*) := <array-to-list(|"Error", [], [], [], Integer())> ins*;
 				length := <length> inIndices*;
@@ -735,11 +735,11 @@ rules
 			connectSystem := <index(|1); index(|outNum)> systems*;
 			thisOutput := <index(|1); map(system-get-outputs); concat; index(|outIndex)> systems*;
 			thisInputs* := <index(|2); map(system-get-inputs); concat; index(|inIndex); input-get-inputs> systems*;
-			outputBlock := <intpair-to-tuple; tuple-to-port-block(libmod-get-output|ast, <system-get-modules> connectSystem)> thisOutput;
-			inputBlocks* :=  <map(intpair-to-tuple; tuple-to-port-block(libmod-get-input|ast, <system-get-modules> thisSystem))> thisInputs*;
+			outputLocation := <intpair-to-tuple; tuple-to-port-location(funcblock-get-output|ast, <system-get-modules> connectSystem)> thisOutput;
+			inputLocations* :=  <map(intpair-to-tuple; tuple-to-port-location(funcblock-get-input|ast, <system-get-modules> thisSystem))> thisInputs*;
 			inIncrArray* := <copy; map-with-index(tuple-getx)> (<subt>(inNum, 1), 0);
 			inAddition :=  <map(at-index(|<index(|2)>systems*); system-get-input-num); foldr(!0, add)>inIncrArray*;		
-			(newMods*, newInputs*, newOutputs*) := <add-mirrors(|<system-get-modules> thisSystem, 0, <subt>(inIndex, inAddition), <system-get-inputs>thisSystem,  <system-get-outputs>thisSystem, 0, 0, IntPair("0", "1"))>(outputBlock, inputBlocks*);
+			(newMods*, newInputs*, newOutputs*) := <add-mirrors(|<system-get-modules> thisSystem, 0, <subt>(inIndex, inAddition), <system-get-inputs>thisSystem,  <system-get-outputs>thisSystem, 0, 0, IntPair("0", "1"))>(outputLocation, inputLocations*);
 			thisNewSystem := System(newMods*, newInputs*, newOutputs*, <intpair-sub>(<modules-get-top-right(|ast)> newMods*, <modules-get-bottom-left(|ast)> newMods*), <system-get-latency> thisSystem, <system-get-energy> thisSystem);
 			newDsSystems* := <set-index>(<subt>(inNum, 1), thisNewSystem, <index(|2)> systems*);
 			addedMirs := <subt>(<length> newMods*, <system-get-module-num> thisSystem);
@@ -993,7 +993,7 @@ rules
 			res* := <zip>(<copy>(<length> elem*, index), elem*)
 	
 	find-connect-nop-locs(|ast, systems*, systemIndex, modIndex):
-		[Module(modNum, size, block, sources*) | modules*] -> res*
+		[Module(modNum, size, location, sources*) | modules*] -> res*
 		with
 			nopSources* := <map-with-index(find-nop-source(|ast, systems*, systemIndex, modIndex)); concat> sources*;
 			if <gt> (<length> sources*, 0) then
@@ -1027,7 +1027,7 @@ rules
 			if <lt> (modIndex, 2) then
 				res := 0
 			else
-				thisPortNum := <index(|modIndex);module-get-libmod(|ast); libmod-get-output-num> mods*;
+				thisPortNum := <index(|modIndex);module-get-funcblock(|ast); funcblock-get-output-num> mods*;
 				thatPortNum := <system-get-port-num-upto(|ast, <subt>(modIndex, 1))>System(mods*, i, o, s, d, e);
 				res := <add>(thisPortNum, thatPortNum)
 			end
@@ -1147,7 +1147,7 @@ rules
 		(source, System(mods*, i, o, s, d, e)) -> System(newMods*, i, o, s, d, e)
 		with
 			yPos := <modules-get-top-right(|ast); intpair-gety> mods*;
-			nop* := [Module("0", "0", Block(IntPair("0", yPos), "90", "1"), [source])];
+			nop* := [Module("0", "0", Location(IntPair("0", yPos), "90", "1"), [source])];
 			newMods* := [mods*, nop*]
 			
 	update-sources(|sysNum):
@@ -1235,7 +1235,7 @@ rules
 			end
 		
 	update-connected-mod(|origSystems*, additionalSizes, systemIndex):
-		(moduleNum, Module(num, block, time, sources*)) -> (Module(num, block, time, newSources*), resTuples*)
+		(moduleNum, Module(num, location, time, sources*)) -> (Module(num, location, time, newSources*), resTuples*)
 		with
 			(newSources*, rawTuples*) := <map-with-index(update-connected-source(|origSystems*, additionalSizes, systemIndex, moduleNum)); unzip> sources*;
 			resTuples* := <concat> rawTuples*
