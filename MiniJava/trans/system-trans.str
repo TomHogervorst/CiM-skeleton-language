@@ -25,15 +25,13 @@ rules
 	input-get-inputs:
 		Input(array*) -> array*
 		
-	input-sety(|y):
-		Input(array) -> Input(newArray)
-		with
-			newArray := <map(intpair-sety(|y))> array
+	input-sety(|n):
+		Input(array*) -> Input(<map(intpair-sety(|n))> array*)
 			
-	input-shift-with-indices(|n, modNum):
-		Input(array) -> Input(newArray)
+	input-map-to-inputs(rule):
+		Input(array*) -> Input(newArray*)
 		with
-			newArray := <map(intpair-shift-with-indices(|n, modNum))> array
+			newArray* := <map(rule)> array*
 		
 	input-merge:
 		(Input(array1*), Input(array2*)) -> Input([array1*, array2*])
@@ -65,12 +63,8 @@ rules
 			else
 				resArray* := <set-index> (<subt>(index, 1), intpair, array*)
 			end
-			
-	input-addx-to-all(|x, n):
-		Input(array) -> Input(<map(intpair-addX-cond(gt|x, n))>array)
 		
-	input-addy-to-all(|y):
-		Input(array) -> Input(<map(intpair-addY-cond(eq|y, 0))>array)
+	
 		
 	input-length:
 		Input(array) -> <length> array
@@ -111,7 +105,7 @@ rules
 	system-rotate(|angle):
 		System(module*, input*, output*, size, latency, energy) -> System(newModule*, input*, output*, size, latency, energy)
 		with
-			newModule* := <map(module-rotate(|angle))> module*
+			newModule* := <map(module-apply-to-location(location-rotate(|angle)))> module*
 	
 	system-get-module(|i):
 		System(module*, input*, output*, size, latency, energy) -> mod
@@ -174,7 +168,7 @@ rules
 	system-increase-port-mods-by(cond|n, bound):
 		System(mod*, input*, output*, s, l, e) -> System(mod*, newInput*, newOutput*, s, l, e)
 		with
-			newInput* := <map(input-addx-to-all(|n, bound))> input*;
+			newInput* := <map(input-map-to-inputs(intpair-addX-cond(cond|n, bound)))> input*;
 			newOutput* := <map(intpair-addX-cond(cond|n, bound))> output*
 			
 	system-update-out-ports(|sizes*):
@@ -219,7 +213,7 @@ rules
 		[IntPair(x, y)| intpairs*] -> resModules*
 		with
 			thisModule := <index(|<string-to-int> x)> modules*;
-			newModule := <module-set-in-source(|<string-to-int> y, inNum)> thisModule;
+			newModule := <module-set-source(|<string-to-int> y, IntPair("0", <int-to-string> inNum))> thisModule;
 			newModules* := <set-index>(<string-to-int; dec> x, newModule, modules*);
 			resModules* := <modules-set-in-sources(|newModules*, inNum)> intpairs*
 			
@@ -324,11 +318,6 @@ rules
 			; sndLowInputNum := <system-get-input-num> sndLow
 			; lowSplit* := <list-split> (lowSys*, sndLowInputNum, sndLowNum)
 			; newLow* := <zip(system-H-combine(|ast))> (sndLowSys*, lowSplit*)
-			  
-	system-linear-reduce(|ast):
-		(subSys*, n*) -> system
-		with
-			(_, _, [system]) := <repeat-until(system-tree-reduce(|ast), ?([],_,_))> (subSys*, n*, [])
 	
 	system-H-combine(|ast):
 		(highSys, lowSys*) -> resSys
@@ -338,7 +327,9 @@ rules
    	 	if <eq>(n, 0) then
    	 		resSys := highSys
    	 	else
-	   	 	hInPort* := <system-get-inports(|ast); take(|n); map(move-to-edge(|ast, highSys))> highSys
+   	 		BL := <system-get-modules; modules-get-bottom-left(|ast)> highSys;
+			TR := <system-get-modules; modules-get-top-right(|ast)> highSys;
+	   	 	hInPort* := <system-get-inports(|ast); take(|n); map(move-to-edge(|ast, highSys, BL, TR))> highSys
 	   	 	; lOutPort* := <map(system-get-outports(|ast); Hd)> lowSys*
 	   	 	//; transLocation* := <zip(tuple-to-arg(location-adjust-to-target))> (lOutPort*, hInPort*)
 	   	 	; transLocation* := <zip(location-adjust-to-target)> (lOutPort*, hInPort*)
@@ -374,12 +365,10 @@ rules
 	   	 	; resSys := System(module*, input*, output*, size, latency, energy)
 	   	 end
 	
-	move-to-edge(|ast, system):
+	move-to-edge(|ast, system, BL, TR):
 		Location(IntPair(x, y), rot, mir) -> Location(IntPair(newX, newY), rot, mir)
 		with
 			orientation := <location-get-orientation> Location(IntPair(x, y), rot, mir);
-			BL := <system-get-modules; modules-get-bottom-left(|ast)> system;
-			TR := <system-get-modules; modules-get-top-right(|ast)> system;
 			if <eq>(orientation, 0) then
 				newX := x;
 				newY := <intpair-gety> BL
@@ -459,7 +448,6 @@ rules
 		(System(mods1*, inputs1*, outputs1*, size1, latency1, energy1), System(mods2*, inputs2*, outputs2*, size2, latency2, energy2)) -> (numPaths, System(modsNew*, inputsNew*, outputsNew*, sizeNew, latencyNew, energyNew))
 		with
 			//<debug(!"place-in-X inputs: ")>(System(mods1*, inputs1*, outputs1*, size1, latency1, energy1), System(mods2*, inputs2*, outputs2*, size2, latency2, energy2));
-			//<debug> localInputs2*;
 			modNum1 := <length> mods1*;
 			modNum2 := <length> mods2*;
 			if <eq>(modNum1, 0) then
@@ -468,7 +456,7 @@ rules
 				outputsNew* := outputs2*;
 				numPaths := 0;
 				energyNew := energy2;
-				sizeNe := size2;
+				sizeNew := size2;
 				latencyNew := latency2
 			else if <eq>(modNum2, 0) then
 				modsNew* := mods1*;
@@ -476,13 +464,17 @@ rules
 				outputsNew* := outputs1*;
 				numPaths := 0;
 				energyNew := energy1;
-				sizeNe := size1;
+				sizeNew := size1;
 				latencyNew := latency1
 			else
 				connectionSpace := <mul>(<length> outputs1*, 32);
 				(newMods1*, sizeNew, energyNew, xPos1) := <size-and-energy-in-X(|ast, connectionSpace)> (mods1*, size1, energy1, mods2*, size2, energy2);
-				(newMods2*, unusedInputs2*, newOutputs2*) := <system-add-mirrors(|ast, localInputs2*, outputs2*, 0, 0, 1, modNum1)>(mods1*, newMods1*, outputs1*, localInputs2*);
-				newMods3* := <map(module-delay(|<string-to-int> latency1))> newMods2*;
+				BL1 := <modules-get-bottom-left(|ast)> mods1*;
+				TR1 := <modules-get-top-right(|ast)> mods1*;
+				BL2 := <modules-get-bottom-left(|ast)> newMods1*;
+				TR2 := <modules-get-top-right(|ast)> newMods1*;
+				(newMods2*, unused, unusedInputs2*, newOutputs2*) := <system-add-mirrors(|ast, localInputs2*, outputs2*, 0, 0, 1, modNum1, BL1, TR1, BL2, TR2)>(mods1*, newMods1*, [], outputs1*, localInputs2*);
+				newMods3* := <map(module-delay(|<addS; string-to-int>(latency1, "3")))> newMods2*;
 				modsNew* := [mods1*, newMods3*];
 				inputsNew* := <uneven-zip(input-merge)>(inputs1*, inputs2*);
 				outputsNew* := newOutputs2*;
@@ -510,7 +502,7 @@ rules
 			(newMods1*, sizeNew, energyNew, unused) := <size-and-energy-in-X(|ast, 0)> (mods1*, size1, energy1, mods2*, size2, energy2);
 			newMods2* := <map(increase-module-num-by(gt|modNum1, 0))> newMods1*;
 			modsNew* := [mods1*, newMods2*];
-			newInputs2* := <map(input-addx-to-all(|modNum1, 0))>inputs2*;
+			newInputs2* := <map(input-map-to-inputs(intpair-addX-cond(gt|modNum1, 0)))>inputs2*;
 			inputsNew* := [inputs1*, newInputs2*];
 			newOutputs2* := <map(update-outport(|modNum1, inNum1))> outputs2*;
 			outputsNew* := [outputs1*, newOutputs2*];
@@ -538,8 +530,8 @@ rules
 			newMods1* := <module-shiftY-for-list> (mods2*, yDifference);
 			newMods2* := <map(increase-module-num-by(gt|modNum1, 0))> newMods1*;
 			modsNew* := [mods1*, newMods2*];
-			newInputs1* := <map(input-addy-to-all(|outNum1))>inputs2*;
-			newInputs2* := <map(input-addx-to-all(|modNum1, 0))>newInputs1*;
+			newInputs1* := <map(input-map-to-inputs(intpair-addY-cond(eq|outNum1, 0)))>inputs2*;
+			newInputs2* := <map(input-map-to-inputs(intpair-addX-cond(gt|modNum1, 0)))>newInputs1*;
 			inputsNew* := [inputs1*, newInputs2*];
 			newOutputs2* := <map(update-outport(|modNum1, inNum1))> outputs2*;
 			outputsNew* := [outputs1*, newOutputs2*];
@@ -557,11 +549,14 @@ rules
 			
 			connectionSpace := <mul>(<map(remove-inout); try(concat); length> outputs1*, 32);
 			(newMods1*, sizeNew, energyNew, xPos1) := <size-and-energy-in-X(|ast, connectionSpace)> (mods1*, size1, energy1, mods2*, size2, energy2);
-			
-			(newMods2*, newInputs2*, newOutputs2*) := <system-add-mirrors(|ast, inputs2*, outputs2*, 0, 0, 1, 0)>(mods1*, newMods1*, outputs1*, inputs2*);
+			BL1 := <modules-get-bottom-left(|ast)> mods1*;
+			TR1 := <modules-get-top-right(|ast)> mods1*;
+			BL2 := <modules-get-bottom-left(|ast)> newMods1*;
+			TR2 := <modules-get-top-right(|ast)> newMods1*;
+			(newMods2*, unused, newInputs2*, newOutputs2*) := <system-add-mirrors(|ast, inputs2*, outputs2*, 0, 0, 1, 0, BL1, TR1, BL2, TR2)>(mods1*, newMods1*, [], outputs1*, inputs2*);
 			newMods3* := <map(increase-module-num-by(gt|modNum1, 0))> newMods2*;
 			newMods4* := <connect-sources> (newMods3*, outputs1*, newInputs2*);
-			newMods5* := <map(module-delay(|<string-to-int> latency1))> newMods4*;
+			newMods5* := <map(module-delay(|<addS; string-to-int>( latency1, "3")))> newMods4*;
 			modsNew* := [mods1*, newMods5*];
 			inputsNew* := <map(link-inputs(|modNum1, newInputs2*))> inputs1*;
 			outputsNew* := <map(link-output(|modNum1, outputs1*))> newOutputs2*;			
@@ -582,17 +577,7 @@ rules
 		
 	remove-inout:
 		IntPair(_, _) -> [1]
-	
-	increase-unmarked-sources-by(|num):
-		Module(modId, delay, location, sources) -> Module(modId, delay, location, newSources)
-		with
-			newSources := <map(increase-marked-and-unmark(|num))> sources
-			
-	increase-marked-and-unmark(|num):
-		IntPair(x, "-1") -> IntPair(x, "1")
-		
-	increase-marked-and-unmark(|num):
-		IntPair(x, y) -> IntPair(<add; int-to-string>(num, <string-to-int> x), y)
+
 	
 	size-and-energy-in-X(|ast, connectionSpace):
 			(mods1*, size1, energy1, mods2*, size2, energy2)-> (modsNew*, sizeNew, energyNew, xPos1)
@@ -611,33 +596,37 @@ rules
 			modsNew* := <module-shiftX-for-list> (mods2*, <add> (xDifference, connectionSpace));
 			energyNew := <addS>(energy1, energy2)	
 			
-	system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, inputNum, modNum1):
-		(mods1*, mods2*, outputs*, [Input([]) | inputs*]) -> <system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, <inc>inputNum, modNum1)>(mods1*, mods2*, outputs*, inputs*)
+	system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, inputNum, modNum1, BL1, TR1, BL2, TR2):
+		(mods1*, mods2*, mirs*, outputs*, [Input([]) | inputs*]) -> <system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, <inc>inputNum, modNum1, BL1, TR1, BL2, TR2)>(mods1*, mods2*, mirs*, outputs*, inputs*)
 			
-	system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, inputNum, modNum1):
-		(mods1*, mods2*, [output | outputs*], [input | inputs*]) -> (resMods*, resInputs*, resOutputs*)
+	system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, inputNum, modNum1, BL1, TR1, BL2, TR2):
+		(mods1*, mods2*, mirs*, [output | outputs*], [input | inputs*]) -> (resMods*, resMirs*, resInputs*, resOutputs*)
 		with
 			outTuple := <intpair-to-tuple> output;
-			inTuples* := <input-get-inputs; map(intpair-addX-cond(gt|<subt>(addMir, modNum1), 0); intpair-to-tuple; get-connected); concat> input;
+			inTuples* := <input-get-inputs; map(intpair-to-tuple; get-connected); concat> input; //intpair-addX-cond(gt|<subt>(addMir, modNum1), 0);
 			if <?(0, _)> outTuple then
-				(resMods*, resInputs*, resOutputs*) := <system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, <inc> inputNum, modNum1)>(mods1*, mods2*, outputs*, inputs*)
+				(resMods*, resMirs*, resInputs*, resOutputs*) := <system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, <inc> inputNum, modNum1, BL1, TR1, BL2, TR2)>(mods1*, mods2*, mirs*, outputs*, inputs*)
 			else if <eq>(<length> inTuples*, 0) then
-				(resMods*, resInputs*, resOutputs*) := <system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, <inc> inputNum, modNum1)>(mods1*, mods2*, outputs*, inputs*)
+				(resMods*, resMirs*, resInputs*, resOutputs*) := <system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, <inc> inputNum, modNum1, BL1, TR1, BL2, TR2)>(mods1*, mods2*, mirs*, outputs*, inputs*)
 			else
-				outputLocation :=  <tuple-to-port-location(funcblock-get-output|ast, mods1*); move-to-edge(|ast, System(mods1*, [], [], IntPair("0", "0"), "0", "0"))> outTuple;
-				inputLocations* :=  <map(tuple-to-port-location(funcblock-get-input|ast, mods2*); move-to-edge(|ast, System(mods2*, [], [], IntPair("0", "0"), "0", "0")))> inTuples*;
-				(newMods*, newInputs*, newOutputs*) := <add-mirrors(|mods2*, counter, inputNum, inputs2*, outputs2*, modNum1, modNum1, <tuple-to-intpair>outTuple)>(outputLocation, inputLocations*);
-				if <eq>(<subt> (<length> newMods*, <length> mods2*), 0) then
+				outputLocation :=  <tuple-to-port-location(funcblock-get-output|ast, mods1*, 0); move-to-edge(|ast, System(mods1*, [], [], IntPair("0", "0"), "0", "0"), BL1, TR1)> outTuple;
+				inputLocations* :=  <map(tuple-to-port-location(funcblock-get-input|ast, mods2*, modNum1); move-to-edge(|ast, System(mods2*, [], [], IntPair("0", "0"), "0", "0"), BL2, TR2))> inTuples*;
+				(newMods*, tempMirs*, newInputs*) := <add-mirrors(|mods2*, counter, addMir, inputNum, inputs2*, modNum1, modNum1, <tuple-to-intpair>outTuple)>(outputLocation, inputLocations*);
+				if <eq>(<length> tempMirs*, 0) then
 					newCounter := counter
 				else
 					newCounter := <inc> counter
 				end;
-				newAddMir := <add>(addMir, <subt> (<length> newMods*, <length> mods2*));
-				(resMods*, resInputs*, resOutputs*) := <system-add-mirrors(|ast, newInputs*, newOutputs*, newCounter, newAddMir, <inc> inputNum, modNum1)>(mods1*, newMods*, outputs*, inputs*)
+				newAddMir := <add>(addMir, <length> tempMirs*);
+				newMirs* := [mirs*, tempMirs*];
+				(resMods*, resMirs*, resInputs*, resOutputs*) := <system-add-mirrors(|ast, newInputs*, outputs2*, newCounter, newAddMir, <inc> inputNum, modNum1, BL1, TR1, BL2, TR2)>(mods1*, newMods*, newMirs*, outputs*, inputs*)
 			end end
+				
 			
-	system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, inputNum, modNum):
-		(mods1*, mods2*, [], []) -> (mods2*, inputs2*, outputs2*)
+	system-add-mirrors(|ast, inputs2*, outputs2*, counter, addMir, inputNum, modNum, BL1, TR1, BL2, TR2):
+		(mods1*, mods2*, mirs*, [], []) -> (resMods*, [], resInputs*, resOutputs*)
+		with
+			(resMods*, resInputs*, resOutputs*) := <merge-mirrors-and-modules(|modNum)> (mods2*, mirs*, inputs2*, outputs2*)
 		
 	get-connected:
 		(0, _) -> []
@@ -645,11 +634,11 @@ rules
 	get-connected:
 		(x, y) -> [(x, y)]
 			
-	tuple-to-port-location(port-rule | ast, mods*):
+	tuple-to-port-location(port-rule | ast, mods*, prevModNum):
 		(modNum, portNum)-> portLocation
 		with
-			modId := <index(|modNum); module-get-id; string-to-int> mods*;
-			modLocation := <index(|modNum); module-get-location> mods*;
+			modId := <index(|<subt>(modNum, prevModNum)); module-get-id; string-to-int> mods*;
+			modLocation := <index(|<subt>(modNum, prevModNum)); module-get-location> mods*;
 			portLocation := <get-funcblock(|modId); port-rule(|portNum); location-inherit(|modLocation)> ast
 				
 	link-output(|n, outputs1*):
@@ -784,7 +773,7 @@ rules
 		with
 			bottomLeft := <modules-get-bottom-left(|ast)> modules*;
 			modulesAtZero* := <map(module-transform(|Location(<intpair-sub>(IntPair("0", "0"), bottomLeft), "0", "0")))> modules*;
-			newModulesAtZero* := <map(module-reorientate-at-origin(|rot, mir))> modulesAtZero*;
+			newModulesAtZero* := <map(module-apply-to-location(location-rotate-around-origin(|rot); location-flip-in-X(|mir)))> modulesAtZero*;
 			newModules* := <map(module-transform(|Location(<tuple-to-intpair>(x, y), "0", "0")))> newModulesAtZero*
 	
 	set-systems-connection(|ast, systems*, outIndex, inIndex, addUsSizes*, addDsSizes*):

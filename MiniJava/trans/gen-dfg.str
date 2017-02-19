@@ -37,9 +37,12 @@ rules
    gen-dfg:
    	ast -> system
    	with
+   		<run-time; debug(!"run-time before dereference: ")>"";
    		(tuples*, skeletons*, statements*) := <unroll-and-dereference(|ast)> ast;
+   		<run-time; debug(!"run-time after dereference: ")>"";
    		systemTuples* := <tuples-to-dfg(|ast, [], skeletons*)> tuples*;
-   		system := <main-to-dfg(|ast, systemTuples*, skeletons*)> statements*
+   		system := <main-to-dfg(|ast, systemTuples*, skeletons*)> statements*;
+   		<run-time; debug(!"run-time after spr: ")>""
    		
 	tuples-to-dfg(|ast, systemTuples*, skeletons*):
 		tuples* -> resSystemTuples*
@@ -688,7 +691,7 @@ rules
 			theseUnconnectedPorts* := <filter(?(systemIndex, _); tuple-gety)> unconnectedPorts*;
 			if <eq> (isDs, 1) then
 				theseInputs* := <map(at-index(|i*))> theseUnconnectedPorts*;
-				newInputs* := <map(input-addx-to-all(|addSize, 0))> theseInputs*;
+				newInputs* := <map(input-map-to-inputs(intpair-addX-cond(gt|addSize, 0)))> theseInputs*;
 				newI* := <set-indices>(<map(dec)> theseUnconnectedPorts*, newInputs*, i*);
 				thisSystem* := [System(modules*, newI*, <map(intpair-addX-cond(gt|addSize, 0))>o*, s, l, e)];
 				thoseSystems* := <systems-add-port-sizes(|isDs, unconnectedPorts*, <inc> systemIndex)>(systems*, addSizes*);
@@ -697,7 +700,7 @@ rules
 				theseOutputs* := <map(at-index(|o*))> theseUnconnectedPorts*;
 				newOutputs* := <map(intpair-addX-cond(gt|addSize, 0))> theseOutputs*;
 				newO* := <set-indices>(<map(dec)> theseUnconnectedPorts*, newOutputs*, o*);
-				thisSystem* := [System(modules*, <map(input-addx-to-all(|addSize, 0))>i*, newO*, s, l, e)];
+				thisSystem* := [System(modules*, <map(input-map-to-inputs(intpair-addX-cond(gt|addSize, 0)))>i*, newO*, s, l, e)];
 				thoseSystems* := <systems-add-port-sizes(|isDs, unconnectedPorts*, <inc> systemIndex)>(systems*, addSizes*);
 				resSystems* := [thisSystem*, thoseSystems*] 
 			end
@@ -735,11 +738,12 @@ rules
 			connectSystem := <index(|1); index(|outNum)> systems*;
 			thisOutput := <index(|1); map(system-get-outputs); concat; index(|outIndex)> systems*;
 			thisInputs* := <index(|2); map(system-get-inputs); concat; index(|inIndex); input-get-inputs> systems*;
-			outputLocation := <intpair-to-tuple; tuple-to-port-location(funcblock-get-output|ast, <system-get-modules> connectSystem)> thisOutput;
-			inputLocations* :=  <map(intpair-to-tuple; tuple-to-port-location(funcblock-get-input|ast, <system-get-modules> thisSystem))> thisInputs*;
+			outputLocation := <intpair-to-tuple; tuple-to-port-location(funcblock-get-output|ast, <system-get-modules> connectSystem, 0)> thisOutput;
+			inputLocations* :=  <map(intpair-to-tuple; tuple-to-port-location(funcblock-get-input|ast, <system-get-modules> thisSystem, 0))> thisInputs*;
 			inIncrArray* := <copy; map-with-index(tuple-getx)> (<subt>(inNum, 1), 0);
 			inAddition :=  <map(at-index(|<index(|2)>systems*); system-get-input-num); foldr(!0, add)>inIncrArray*;		
-			(newMods*, newInputs*, newOutputs*) := <add-mirrors(|<system-get-modules> thisSystem, 0, <subt>(inIndex, inAddition), <system-get-inputs>thisSystem,  <system-get-outputs>thisSystem, 0, 0, IntPair("0", "1"))>(outputLocation, inputLocations*);
+			(tempMods*, mirs*, tempInputs*) := <add-mirrors(|<system-get-modules> thisSystem, 0, 0, <subt>(inIndex, inAddition), <system-get-inputs>thisSystem,  0, 0, IntPair("0", "1"))>(outputLocation, inputLocations*);
+			(newMods*, newInputs*, newOutputs*) := <merge-mirrors-and-modules(|0)> (tempMods*, mirs*, tempInputs*, <system-get-outputs>thisSystem);
 			thisNewSystem := System(newMods*, newInputs*, newOutputs*, <intpair-sub>(<modules-get-top-right(|ast)> newMods*, <modules-get-bottom-left(|ast)> newMods*), <system-get-latency> thisSystem, <system-get-energy> thisSystem);
 			newDsSystems* := <set-index>(<subt>(inNum, 1), thisNewSystem, <index(|2)> systems*);
 			addedMirs := <subt>(<length> newMods*, <system-get-module-num> thisSystem);
@@ -1111,9 +1115,6 @@ rules
 	add-connect-nop(|ast, systems*, systemNo, portNo):
 		[] -> systems*
 		
-	add-connect-nops(|ast, systems*):
-		[] -> systems*
-		
 	add-nop(|ast, systems*, sysNum, portNo):
 		 tuples* -> (connectPort, resSystems*)
 		with
@@ -1284,7 +1285,7 @@ rules
 					updatedSystems* := systems*
 				else
 					(additionalModules, newSystem) := <place-in-X(|ast, thatLocalInputs*)>(system, thatSystem);
-					updatedSystems* := <map(tuple-apply-on-y(map(input-addx-to-all(|additionalModules, 0))); tuple-apply-on-x(system-increase-mod-sources-by(gt|additionalModules, 0); system-increase-port-mods-by(gt|additionalModules, 0)))> systems*
+					updatedSystems* := <map(tuple-apply-on-y(map(input-map-to-inputs(intpair-addX-cond(gt|additionalModules, 0)))); tuple-apply-on-x(system-increase-mod-sources-by(gt|additionalModules, 0); system-increase-port-mods-by(gt|additionalModules, 0)))> systems*
 				end;
 				newSystems* := <set-index> (0, (newSystem, []), updatedSystems*);
 				resSystem := <place-all(|ast)> newSystems*

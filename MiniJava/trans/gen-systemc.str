@@ -33,8 +33,7 @@ mapping-to-systemc:
 	(index, OutputModule(outputNum, mod)) -> <output-to-systemc(|<int-to-string> index, outputNum)> mod
 	
 module-to-systemc(|moduleNum):
-	MappedModule(modId, _, _, _, _, _, _, _, inputPorts*) -> (<module-to-decls(|moduleNum)>(modId, inputPorts*), SystemCModuleConnects(<common-connects(|modId)>(moduleNum, inputPorts*), <map-with-index(port-to-connects(|moduleNum))> inputPorts*))
-	/*with
+	MappedModule(modId, _, _, _, _, _, _, _, inputPorts*) -> (<module-to-decls(|moduleNum)>(modId, inputPorts*),  SystemCModuleConnects(<common-connects(|modId)>(moduleNum, inputPorts*), <map-with-index(port-to-connects(|moduleNum))> inputPorts*))	/*with
 		<debug(!"Started module-to-systemc. ")>(modId, inputPorts*)*/
 	
 output-to-systemc(|moduleNum, outputNum):
@@ -67,7 +66,6 @@ output-connects(|modId):
 port-to-connects(|moduleNum):
 	(index, MappedInputPort(num, length, _)) -> InputModConnects(moduleNum, stringIndex, <subtS>(num, "1"), moduleNum, stringIndex)
 	with
-		<debug(!"InputModConnects inputs: ")>(moduleNum, index, num, length);
 		stringIndex := <int-to-string> index
 		
 port-to-connects(|moduleNum):

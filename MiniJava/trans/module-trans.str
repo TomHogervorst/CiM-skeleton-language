@@ -42,36 +42,16 @@ rules
 	    	; new* := <zip(module-shiftY-for-list); flatten-list> (temp*, shiftY)
 	 
 	  module-shiftX-for-list:
-	 	(module*, shiftX) -> <map(module-shiftX(|shiftX))> module*
+	 	(module*, shiftX) -> <map(module-apply-to-location(location-shiftX(|shiftX)))> module*
 	 	   	  
 	 module-shiftY-for-list:
-	 	(module*, shiftY) -> <map(module-shiftY(|shiftY))> module*
+	 	(module*, shiftY) -> <map(module-apply-to-location(location-shiftY(|shiftY)))> module*
 	 	
-	 module-shiftX(|shiftX):
+	 module-apply-to-location(rule):
 	 	Module(modId, time, location, source*) -> Module(modId, time, newLocation, source*)
-		with
-			newLocation := <location-shiftX(|shiftX)> location
+	 	with
+	 		newLocation := <rule> location
 			
-	 module-shiftY(|shiftY):
-	 	Module(modId, time, location, source*) -> Module(modId, time, newLocation, source*)
-		with
-			newLocation := <location-shiftY(|shiftY)> location
-			
-	module-rotate(|angle):
-		Module(modId, time, location, source*) -> Module(modId, time, newLocation, source*)
-		with
-			newLocation := <location-rotate(|angle)> location
-			
-	module-flip:
-		Module(modId, time, location, source*) -> Module(modId, time, newLocation, source*)
-		with
-			newLocation := <location-mirror> location
-			
-	module-reorientate-at-origin(|rot, mir):
-		Module(modId, time, location, source*) -> Module(modId, time, newLocation, source*)
-		with	
-			newLocation := <location-rotate-around-origin(|rot); location-flip-in-X(|mir)> location
-
 	module-get-funcblock(|ast):
 		Module(modId, _, _, _) -> <get-funcblock(|<string-to-int>modId)> ast
 		
@@ -106,33 +86,16 @@ rules
 		with
 			resSources* := [sources*, newSources*]
 			
-	module-replace-source(|toReplace, replaceWith):
-	Module(modId, time, location, sources*) -> Module(modId, time, location, newSources*)
-	with
-		newSources* := <map(intpair-replace(|toReplace, replaceWith))> sources*
-		
 	module-set-source(|index, source):
-	Module(modId, time, location, sources*) -> Module(modId, time, location, newSources*)
-	with
-		length := <length> sources*;
-		if <gt> (index, length) then
-			emptySources* := <copy> (<subt>(<subt> (index, length), 1), IntPair("0", "0"));
-			newSource* := [source];
-			newSources* := [sources*, emptySources*, newSource*]
-		else
-			newSources* := <set-index> (<subt> (index, 1), source, sources*)
-		end
-	
-	module-set-in-source(|sourceNum, inNum):
 		Module(modId, time, location, sources*) -> Module(modId, time, location, newSources*)
 		with
 			length := <length> sources*;
-			if <gt> (sourceNum, length) then
-				emptySources* := <copy> (<subt; dec> (sourceNum, length), IntPair("0", "0"));
-				newSource* := [IntPair("0", <int-to-string> inNum)];
+			if <gt> (index, length) then
+				emptySources* := <copy> (<subt; dec> (index, length), IntPair("0", "0"));
+				newSource* := [source];
 				newSources* := [sources*, emptySources*, newSource*]
 			else
-				newSources* := <set-index>(<dec> sourceNum, IntPair("0", <int-to-string> inNum), sources*)
+				newSources* := <set-index> (<dec>index, source, sources*)
 			end
 	
 	modules-shift-to-origin(|ast):
@@ -197,9 +160,4 @@ rules
 		with
 	    	temp* := <copy>(n, mod*)
 	    	; list* := <natural; map(int-mul(|<length>mod*))> n
-	    	; newmod* := <zip(increase-modules-num-by)> (temp*, list*)
-	    	  
-	module-unmark-source:
-		Module(modId, time, location, source*) -> Module(modId, time, location, newsrc*)
-		with
-			newsrc* := <map(intpair-unmark)> source*
+	    	; newmod* := <zip(increase-modules-num-by)> (temp*, list*)	

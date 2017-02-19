@@ -142,7 +142,7 @@ rules
 	inputs-to-list(|moduleNum, inputs*):
 		entries* -> res*
 		with
-			inputPorts* := <map(input-get-inputs); map-with-index(find-inputs(|moduleNum)); concat; qsort(lt-X); map(tuple-gety); debug> inputs*;
+			inputPorts* := <map(input-get-inputs); map-with-index(find-inputs(|moduleNum)); concat; qsort(lt-X); map(tuple-gety)> inputs*;
 			 modulePorts* := <find-module-ports> entries*;
 			res* := [inputPorts*, modulePorts*]
 			
@@ -152,7 +152,6 @@ rules
 			x := <intpair-getx; string-to-int> input;
 			if <eq> (x, moduleNum)
 			then tempRes* := [(<intpair-gety; string-to-int> input, ("in", <int-to-string> index))]
-				; <debug(!"Found input: ")>(moduleNum, index, input)	
 			else tempRes* := []
 			end;
 			 restString* := <find-inputs(|moduleNum)>(index, inputs*);
@@ -179,63 +178,3 @@ rules
 		[] ->  res*
 		with
 			res* := []
-			
-	/*
-		Find the length in cycles between two ports in the mapped location format
-		This function assumes that every port is 32 long.
-	*/
-	connection-length:
-		(MappedLocation(xout, yout, angleout), MappedLocation(xin, yin, anglein)) -> res
-		with
-			switch !angleout
-			case ?"0":
-				xout1 := <string-to-int> xout
-				; yout1 := <string-to-int> yout
-			case ?"90":
-				 xout1 :=  <string-to-int> xout
-				; yout1 := <string-to-int> yout
-			case ?"180":
-				xout1 :=  <subti> (<string-to-int> xout, 32)
-				; yout1 := <string-to-int> yout
-			case ?"270": 
-				xout1 :=  <string-to-int> xout
-				; yout1 := <subti> (<string-to-int> yout, 32)
-			otherwise:
-				<debug(!"Invalid angle: ")> angleout
-			end;
-			switch !anglein
-			case ?"0":
-				xin1 := <string-to-int> xin
-				;yin1 := <string-to-int> yin
-			case ?"90":
-				xin1 :=  <string-to-int> xin
-				; yin1 := <string-to-int> yin
-			case ?"180":
-				xin1 :=  <subti> (<string-to-int> xin, 32)
-				; yin1 := <string-to-int> yin
-			case ?"270":
-				xin1 :=  <string-to-int> xin
-				; yin1 := <subti> (<string-to-int> yin, 32)
-			otherwise:
-				<debug(!"Invalid angle: ")> anglein
-			end;
-			angleDifference := <subti>(<string-to-int> anglein, <string-to-int> angleout);
-
-			if <lt>(angleDifference, 0)
-			then angleDifference2 := <addi>(angleDifference, 360)
-			else angleDifference2 := angleDifference
-			end;
-			if <geq>(angleDifference2, 180)
-			then angleDifference3 := <subti; int-to-string>(angleDifference2, 180)
-			else angleDifference3 := <int-to-string>angleDifference2
-			end;
-			if <eq>(angleDifference3, 90)
-			then res := "2"
-			else if <eq>(xout1, xin1)
-				then res := "1"
-				else if<eq>(yout1,yin1)
-					then res := "1"
-					else res := "3"
-					end
-				end
-			end			

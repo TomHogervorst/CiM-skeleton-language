@@ -91,15 +91,15 @@ rules
 	
 	intpair-starts-with-zero:
 		IntPair("0", y) -> IntPair("0", y)
-		
-	intpair-unmark:
-		IntPair(x, y) -> IntPair(newX, y)
+					
+	intpair-unmarkY:
+		IntPair(x, y) -> IntPair(x, newY)
 		with
-			if <eq> (<string-to-int> x, -1) then
-				newX := "0"
+			if <lt> (<string-to-int> y, 0) then
+				newY := <subtS>("0", y)
 			else
-				newX := x
-			end			
+				newY := x
+			end
   			
 	intpair-rotate(|angle):
 		IntPair(x, y) -> IntPair(newx, newy)

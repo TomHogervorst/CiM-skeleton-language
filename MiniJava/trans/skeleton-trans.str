@@ -87,9 +87,9 @@ rules
 			portNum := <intpair-gety; string-to-int> outputPort1;
 			outport := <get-funcblock(|<index(|modNum); module-get-id; string-to-int> mods*); funcblock-get-output(|portNum)> ast;
 			angle := <mod>(<add>(<rotate-to(|90, 0)> outport, 360), 360);
-			newMods* := <map(module-rotate(|angle))> mods*;
+			newMods* := <map(module-apply-to-location(location-rotate(|angle)))> mods*;
 			if <eq> (angle, 180) then
-				flippedMods* := <map(module-flip)> newMods*;
+				flippedMods* := <map(module-apply-to-location(location-mirror))> newMods*;
 				pos := <modules-get-bottom-left(|ast)> flippedMods*;
 				resMods* := <modules-transform> (flippedMods*, Location(<intpair-neg> pos, "0", "0"))
 			else
@@ -118,28 +118,26 @@ rules
 			BL1 := <location-get-bottom-left(|IntPair("32", "1"))> Location(loc1, rot1, mir1);
 			BL2 := <location-get-bottom-left(|IntPair("32", "1"))> Location(loc2, rot2, mir2);
 			if <eq>(newRot1, 90) then
-				(newMods*, newInputs*, newOutputs*) := <add-mirrors(|mods*, 0, 1, inputs*, outputs*, 0, 0, IntPair("0", "1"))>(Location(BL1, "0", "1"), [Location(loc1, rot1, mir1)]);
-				leftSize := 0;
-				rightSize := 1
+				(newMods1*, mirs1*, newInputs1*) := <add-mirrors(|mods*, 0, 0, 1, inputs*, 0, 0, IntPair("0", "1"))>(Location(BL1, "0", "1"), [Location(loc1, rot1, mir1)]);
+				(newMods*, newInputs*, newOutputs*) := <merge-mirrors-and-modules(|0)> (newMods1*, mirs1*, newInputs1*, outputs*)
 			else if <eq>(newRot1, 270) then 
-				(newMods*, newInputs*, newOutputs*) := <add-mirrors(|mods*, 0, 1, inputs*, outputs*, 0, 0, IntPair("0", "1"))>(Location(BL1, "180", "0"), [Location(loc1, rot1, mir1)]);
-				leftSize := 1;
-				rightSize := 0
+				(newMods1*, mirs1*, newInputs1*) := <add-mirrors(|mods*, 0, 0, 1, inputs*, 0, 0, IntPair("0", "1"))>(Location(BL1, "180", "0"), [Location(loc1, rot1, mir1)]);
+				(newMods*, newInputs*, newOutputs*) := <merge-mirrors-and-modules(|0)> (newMods1*, mirs1*, newInputs1*, outputs*)
 			else if <eq>(newRot1, 180) then
-				(newMods*, newInputs*, newOutputs*) := <add-mirrors(|mods*, 0, 1, inputs*, outputs*, 0, 0, IntPair("0", "1"))>(Location(IntPair("0", "0"), "180", "0"), [Location(loc1, rot1, mir1)]);
-				leftSize := 1;
-				rightSize := 0
+				(newMods1*, mirs1*, newInputs1*) := <add-mirrors(|mods*, 0, 0, 1, inputs*, 0, 0, IntPair("0", "1"))>(Location(IntPair("0", "0"), "180", "0"), [Location(loc1, rot1, mir1)]);
+				(newMods*, newInputs*, newOutputs*) := <merge-mirrors-and-modules(|0)> (newMods1*, mirs1*, newInputs1*, outputs*)
 			else
-				(newMods*, newInputs*, newOutputs*) := (mods*, inputs*, outputs*);
-				leftSize := 0;
-				rightSize := 0
+				(newMods*, newInputs*, newOutputs*) := (mods*, inputs*, outputs*)
 			end end end;
 			if <eq>(newRot2, 90) then
-				(resMods*, resInputs*, resOutputs*) := <add-mirrors(|newMods*, 0, 2, newInputs*, newOutputs*, 0, 0, IntPair("0", "1"))>(Location(BL2, "0", "0"), [Location(loc2, rot2, mir2)])
+				(newMods2*, mirs2*, newInputs2*) := <add-mirrors(|newMods*, 0, 0, 2, newInputs*, 0, 0, IntPair("0", "1"))>(Location(BL2, "0", "0"), [Location(loc2, rot2, mir2)]);
+				(resMods*, resInputs*, resOutputs*) := <merge-mirrors-and-modules(|0)> (newMods2*, mirs2*, newInputs2*, newOutputs*)
 			else if <eq>(newRot2, 270) then 
-				(resMods*, resInputs*, resOutputs*) := <add-mirrors(|newMods*, 0, 2, newInputs*, newOutputs*, 0, 0, IntPair("0", "1"))>(Location(BL2, "180", "1"), [Location(loc2, rot2, mir2)])
+				(newMods2*, mirs2*, newInputs2*):= <add-mirrors(|newMods*, 0, 0, 2, newInputs*, 0, 0, IntPair("0", "1"))>(Location(BL2, "180", "1"), [Location(loc2, rot2, mir2)]);
+				(resMods*, resInputs*, resOutputs*) := <merge-mirrors-and-modules(|0)> (newMods2*, mirs2*, newInputs2*, newOutputs*)
 			else if <eq>(newRot2, 0) then
-				(resMods*, resInputs*, resOutputs*) := <add-mirrors(|newMods*, 0, 2, newInputs*, newOutputs*, 0, 0, IntPair("0", "1"))>(Location(IntPair("0", "0"), "0", "0"), [Location(loc2, rot2, mir2)])
+				(newMods2*, mirs2*, newInputs2*) := <add-mirrors(|newMods*, 0, 0, 2, newInputs*,  0, 0, IntPair("0", "1"))>(Location(IntPair("0", "0"), "0", "0"), [Location(loc2, rot2, mir2)]);
+				(resMods*, resInputs*, resOutputs*) := <merge-mirrors-and-modules(|0)> (newMods2*, mirs2*, newInputs2*, newOutputs*)
 			else
 				(resMods*, resInputs*, resOutputs*) := (newMods*, newInputs*, newOutputs*)
 			end end end
@@ -256,10 +254,35 @@ rules
 				resSize := <intpair-addY(|32)> size
 			end end end	
 			
+	merge-mirrors-and-modules(|modNum1):
+		(mods*, mirs*, inputs*, outputs*) -> (resMods*, resInputs*, resOutputs*)
+		with
+			addMirNum := <length> mirs*;
+			resInputs* := <map(input-map-to-inputs(increase-unmarked-and-unmark(gt|addMirNum, 0)))> inputs*;
+			resOutputs* := <map(intpair-addX-cond(gt|addMirNum, 0))> outputs*;
+			newMods* := <map(increase-unmarked-sources-by(gt|addMirNum, modNum1))> mods*;
+			resMods* := [mirs*, newMods*]
+			
+			
+	increase-unmarked-sources-by(cond|num, bound):
+		Module(modId, delay, location, sources*) -> Module(modId, delay, location, newSources*)
+		with
+			newSources* := <map(increase-unmarked-and-unmark(cond|num, bound))> sources*
+			
+	increase-unmarked-and-unmark(cond|num, bound):
+		IntPair(x, y) -> res
+		with
+			if <lt>(<string-to-int> y, 0) then
+				res := IntPair(x, <subtS>("0", y))
+			else
+				res := <intpair-addX-cond(cond|num, bound)>IntPair(x, y)
+			end
+				
 	/*
 		Function that adds mirrors between one output port and a number of conne cted input ports
 		inputs:
 			list of modules on the side of the input ports: the mirrors will be added here and these modules need to be updated depending on the amount of mirrors added
+			index: amount of times that mirrors were added already
 			amount of mirrors added to the input list before the start of this rule
 			number representing what input of the system from which the modules come, was used to find the connection to which now mirrors are added.
 			inputs of the system
@@ -269,8 +292,8 @@ rules
 			The port the new mirrors should be connected to.
 	*/
 			
-	add-mirrors(|mods*, mirNum, inputNum, inputs*, outputs*, addModRef, modNum1, connectPort):
-		(outPortLocation, inPortLocations*) -> (resMods*, resInputs*, resOutputs*)
+	add-mirrors(|mods*, index, mirNum, inputNum, inputs*, addModRef, modNum1, connectPort):
+		(outPortLocation, inPortLocations*) -> (resMods*, resMirs*, resInputs*)
 		with
 			outOrientation := <location-get-orientation> outPortLocation;
 			inOrientations* := <map(location-get-orientation)> inPortLocations*;
@@ -282,54 +305,50 @@ rules
 				currentInput := <index(|inputNum); input-get-inputs; index(|1)> inputs*;
 				if <intpair-are-alligned>(outBL, <index(|1)> inBLs*) then
 					if <eq>(<index(|1)> orientationDiffs*, 2) then
-						(resMods*, resInputs*, resOutputs*) := (mods*, inputs*, outputs*)
+						(resMods*, resMirs*, resInputs*) := (mods*, [], inputs*)
 					else
-						(resMods*, addMirNum) := <place-mirror(|mods*, mirNum, <intpair-getx; string-to-int> currentInput,  <intpair-gety; string-to-int> currentInput, addModRef, modNum1, connectPort)>(outOrientation, <index(|1)> orientationDiffs*, outBL, <index(|1)> inBLs*);
-						newInputs* := <map(input-addx-to-all(|addMirNum, 0))> inputs*;
-						resInputs* := <set-index>(<dec>inputNum, Input([IntPair(<addS>("1", <int-to-string> addModRef), "1")]), newInputs*);
-						resOutputs* := <map(intpair-addX-cond(gt|addMirNum, 0))> outputs*
+						(resMods*, resMirs*) := <place-mirror(|mods*, index, mirNum, <intpair-getx; string-to-int> currentInput,  <intpair-gety; string-to-int> currentInput, addModRef, modNum1, connectPort)>(outOrientation, <index(|1)> orientationDiffs*, outBL, <index(|1)> inBLs*);
+						resInputs* := <set-index>(<dec>inputNum, Input([IntPair(<add; inc; int-to-string>(addModRef, mirNum), "-1")]), inputs*)
 					end
 				else
-					 (resMods*, addMirNum) := <place-mirror(|mods*, mirNum, <intpair-getx; string-to-int> currentInput,  <intpair-gety; string-to-int> currentInput, addModRef, modNum1, connectPort)>(outOrientation, <index(|1)> orientationDiffs*, outBL, <index(|1)> inBLs*);
-					 newInputs* := <map(input-addx-to-all(|addMirNum, 0))> inputs*;
-					 resInputs* := <set-index>(<dec>inputNum, Input([IntPair(<addS>("1", <int-to-string> addModRef), "1")]), newInputs*);
-					 resOutputs* := <map(intpair-addX-cond(gt|addMirNum, 0))> outputs*
+					 (resMods*, resMirs*) := <place-mirror(|mods*, index, mirNum, <intpair-getx; string-to-int> currentInput,  <intpair-gety; string-to-int> currentInput, addModRef, modNum1, connectPort)>(outOrientation, <index(|1)> orientationDiffs*, outBL, <index(|1)> inBLs*);
+					 resInputs* := <set-index>(<dec>inputNum, Input([IntPair(<add; inc; int-to-string>(addModRef, mirNum), "-1")]), inputs*)
 				end
 			else
 				currentInputs* := <index(|inputNum); input-get-inputs> inputs*;
 				startInputs* := <set-index>(<dec>inputNum, Input([]), inputs*);
-				(resMods*, resInputs*, resOutputs*) := <place-mirrors(|mods*, mirNum, inputNum, startInputs*, outputs*, addModRef, modNum1, 0, connectPort)>(outOrientation, orientationDiffs*, outBL, inBLs*, currentInputs*)
+				(resMods*, resMirs*, resInputs*) := <place-mirrors(|mods*, index, mirNum, inputNum, startInputs*, addModRef, modNum1, connectPort)>(outOrientation, orientationDiffs*, outBL, inBLs*, currentInputs*)
 			end
 			
-	place-mirrors(|mods*, mirNum, inputNum, inputs*, outputs*, addModRef, modNum1, addedMirs, connectPort):
-		(outOrientation, [diff | orientationDiffs*], outBL, [inBL | inBLs*], [thisInput | theseInputs*]) -> (resMods*, resInputs*, resOutputs*)
+	place-mirrors(|mods*, index, mirNum, inputNum, inputs*, addModRef, modNum1, connectPort):
+		(outOrientation, [diff | orientationDiffs*], outBL, [inBL | inBLs*], [thisInput | theseInputs*]) -> (resMods*, resMirs*, resInputs*)
 		with
-			(newMods*, addMirNum) := <place-mirror(|mods*, mirNum, <add>(<intpair-getx; string-to-int> thisInput, addedMirs), <intpair-gety; string-to-int> thisInput, addModRef, modNum1, connectPort)> (outOrientation, diff, outBL, inBL);
-			newInputs* := <map(input-addx-to-all(|addMirNum, 0))> inputs*;
-			currentInput := <index(|inputNum)> newInputs*;
-			newInput := <input-add-intpairs(|[IntPair(<addS>("1", <int-to-string> addModRef), "1")])> currentInput;
-			newerInputs* := <set-index>(<dec> inputNum, newInput, newInputs*);
-			newOutputs* := <map(intpair-addX-cond(gt|addMirNum, 0))> outputs*;
-			(resMods*, resInputs*, resOutputs*) := <place-mirrors(|newMods*, mirNum, inputNum, newerInputs*, newOutputs*, addModRef, modNum1, <add>(addedMirs, addMirNum), connectPort)>(outOrientation, orientationDiffs*, outBL, inBLs*,  theseInputs*)
+			(newMods*, theseMirs*) := <place-mirror(|mods*, index, mirNum, <intpair-getx; string-to-int> thisInput, <intpair-gety; string-to-int> thisInput, addModRef, modNum1, connectPort)> (outOrientation, diff, outBL, inBL);
+			currentInput := <index(|inputNum)> inputs*;
+			newInput := <input-add-intpairs(|[IntPair(<add; inc; int-to-string>(addModRef, mirNum), "-1")])> currentInput;
+			newInputs* := <set-index>(<dec> inputNum, newInput, inputs*);
+			addMirNum := <length> theseMirs*;
+			(resMods*, thoseMirs*, resInputs*) := <place-mirrors(|newMods*, index, <add>(mirNum, addMirNum), inputNum, newInputs*, addModRef, modNum1, connectPort)>(outOrientation, orientationDiffs*, outBL, inBLs*,  theseInputs*);
+			resMirs* := [theseMirs*, thoseMirs*]
 	
-	place-mirrors(|mods*, mirNum, inputNum, inputs*, outputs*, addModRef, modNum1, addedMirs, connectPort):
-		(outOrientation, [], outBL, [], []) -> (mods*, inputs*, outputs*)
+	place-mirrors(|mods*, index, mirNum, inputNum, inputs*, addModRef, modNum1, connectPort):
+		(outOrientation, [], outBL, [], []) -> (mods*, [], inputs*)
 	
 	
-	place-mirror(|mods*, mirNum, modNum, portNum, addModRef, modNum1, connectPort):
-		(outOrientation, orientationDiff, outPos, inPos) -> (resMods*, addMirNum)
+	place-mirror(|mods*, index, mirNum, modNum, portNum, addModRef, modNum1, connectPort):
+		(outOrientation, orientationDiff, outPos, inPos) -> (resMods*, resMirs*)
 		with
 			if <eq>(orientationDiff, 0)  then
 				if <eq>(outOrientation, 0) then
 					mir1Rot := "0";
 					mir1X := <intpair-getx> inPos;
-					mir1Y := <subt; int-to-string>(<min>(<intpair-gety; string-to-int> outPos, <intpair-gety; string-to-int> inPos), <mul>(mirNum, 32));
+					mir1Y := <subt; int-to-string>(<min>(<intpair-gety; string-to-int> outPos, <intpair-gety; string-to-int> inPos), <mul>(index, 32));
 					mir2X := <addS>(<intpair-getx> outPos, "32");
 					mir2Y := mir1Y;
 					mir2Rot := "270"
 				else if <eq>(outOrientation, 1) then
 					mir1Rot := "90";
-					mir1X := <add; int-to-string>(<max>(<intpair-getx; string-to-int> outPos, <intpair-getx; string-to-int> inPos), <mul>(mirNum, 32));
+					mir1X := <add; int-to-string>(<max>(<intpair-getx; string-to-int> outPos, <intpair-getx; string-to-int> inPos), <mul>(index, 32));
 					mir1Y := <intpair-gety> inPos;
 					mir2X := mir1X;
 					mir2Y := <addS>(<intpair-gety> outPos, "32");
@@ -337,36 +356,34 @@ rules
 				else if <eq>(outOrientation, 2) then
 					mir1Rot := "180";
 					mir1X := <addS>(<intpair-getx> inPos, "32");
-					mir1Y := <add; int-to-string>(<max>(<intpair-gety; string-to-int> outPos, <intpair-gety; string-to-int> inPos), <mul>(mirNum, 32));
+					mir1Y := <add; int-to-string>(<max>(<intpair-gety; string-to-int> outPos, <intpair-gety; string-to-int> inPos), <mul>(index, 32));
 					mir2X := <intpair-getx> outPos;
 					mir2Y := mir1Y;
 					mir2Rot := "90"
 				else
 					mir1Rot := "270";
-					mir1X := <subt; int-to-string>(<min>(<intpair-getx; string-to-int> outPos, <intpair-getx; string-to-int> inPos), <mul>(mirNum, 32));
+					mir1X := <subt; int-to-string>(<min>(<intpair-getx; string-to-int> outPos, <intpair-getx; string-to-int> inPos), <mul>(index, 32));
 					mir1Y := <addS>(<intpair-gety> inPos, "32");
 					mir2X := mir1X;
 					mir2Y := <intpair-gety> outPos;
 					mir2Rot := "180"
 				end end end;
-				addMirNum := 2;
-				newMods* := <map(increase-module-num-by(gt|2, modNum1))> mods*;
-				thisMod := <index(|<subt>(modNum, modNum1))> newMods*;
-				newMod := <module-set-source(|portNum, IntPair(<addS>("2", <int-to-string> addModRef), "1"))> thisMod;
-				newerMods* := <set-index>(<subt; dec>(modNum, modNum1), newMod, newMods*);
-				mir1Mods* := <add-mirror(|IntPair(mir1X, mir1Y), mir1Rot, "1", <tuple-to-intpair>(<inc> addModRef, 1), <index(|<subt>(modNum, modNum1))> newerMods*)> newerMods*;
-				resMods* := <add-mirror(|IntPair(mir2X, mir2Y), mir2Rot, "1", connectPort, <index(|<subt>(modNum, modNum1))> newerMods*)> mir1Mods*
+				thisMod := <index(|<subt>(modNum, modNum1))> mods*;
+				newMod := <module-set-source(|portNum, IntPair(<addS>("2", <add; int-to-string>(mirNum, addModRef)), "-1"))> thisMod;
+				resMods* := <set-index>(<subt; dec>(modNum, modNum1), newMod, mods*);
+				mirs1* := <add-mirror(|IntPair(mir1X, mir1Y), mir1Rot, "1", <tuple-to-intpair>(<add; inc>(mirNum, addModRef), 1), <index(|<subt>(modNum, modNum1))> resMods*)> [];
+				resMirs* := <add-mirror(|IntPair(mir2X, mir2Y), mir2Rot, "1", connectPort, <index(|<subt>(modNum, modNum1))> resMods*)> mirs1*
 			else if <eq>(<abs> orientationDiff, 2)  then
 				if <eq>(outOrientation, 0) then
 					mir1Rot := "180";
 					mir1X := <addS>(<intpair-getx> inPos, "32");
-					mir1Y := <add; int-to-string>(<intpair-gety; string-to-int> outPos, <mul>(<subt>(mirNum, 1), 32));
+					mir1Y := <add; int-to-string>(<intpair-gety; string-to-int> outPos, <mul>(<subt>(index, 1), 32));
 					mir2X := <subtS>(<intpair-getx> outPos, "32");
 					mir2Y := <addS>(mir1Y, "32");
 					mir2Rot := "270"
 				else if <eq>(outOrientation, 1) then
 					mir1Rot := "270";
-					mir1X := <add; int-to-string>(<intpair-getx; string-to-int> outPos, <mul>(<add>(mirNum, 1), 32));
+					mir1X := <add; int-to-string>(<intpair-getx; string-to-int> outPos, <mul>(<add>(index, 1), 32));
 					mir1Y := <addS>(<intpair-gety> inPos, "32");
 					mir2X := <subtS>(mir1X, "32");
 					mir2Y := <intpair-gety> outPos;
@@ -374,25 +391,23 @@ rules
 				else if <eq>(outOrientation, 2) then
 					mir1Rot := "0";
 					mir1X := <intpair-getx> inPos;
-					mir1Y := <add; int-to-string>(<intpair-gety; string-to-int> outPos, <mul>(<add>(mirNum, 1), 32));
+					mir1Y := <add; int-to-string>(<intpair-gety; string-to-int> outPos, <mul>(<add>(index, 1), 32));
 					mir2X := <addS>(<intpair-getx> outPos, "32");
 					mir2Y := <subtS>(mir1Y, "32");
 					mir2Rot := "90"
 				else
 					mir1Rot := "90";
-					mir1X := <add; int-to-string>(<intpair-getx; string-to-int> outPos, <mul>(mirNum, 32));
+					mir1X := <add; int-to-string>(<intpair-getx; string-to-int> outPos, <mul>(index, 32));
 					mir1Y := <intpair-gety> inPos;
 					mir2X := <addS>(mir1X, "32");
 					mir2Y := <addS>(<intpair-gety> outPos, "32");
 					mir2Rot := "180"
 				end end end;
-				addMirNum := 2;
-				newMods* := <map(increase-module-num-by(gt|2, modNum1))> mods*;
-				thisMod := <index(|<subt>(modNum, modNum1))> newMods*;
-				newMod := <module-set-source(|portNum, IntPair(<addS>("2", <int-to-string> addModRef), "1"))> thisMod;
-				newerMods* := <set-index>(<subt; dec>(modNum, modNum1), newMod, newMods*);
-				mir1Mods* := <add-mirror(|IntPair(mir1X, mir1Y), mir1Rot, "1", <tuple-to-intpair>(<inc> addModRef, 1), <index(|<subt>(modNum, modNum1))> newerMods*)> newerMods*;
-				resMods* := <add-mirror(|IntPair(mir2X, mir2Y), mir2Rot, "0", connectPort, <index(|<subt>(modNum, modNum1))> newerMods*)> mir1Mods*
+				thisMod := <index(|<subt>(modNum, modNum1))> mods*;
+				newMod := <module-set-source(|portNum, IntPair(<addS>("2", <add; int-to-string>(mirNum, addModRef)), "-1"))> thisMod;
+				resMods* := <set-index>(<subt; dec>(modNum, modNum1), newMod, mods*);
+				mirs1* := <add-mirror(|IntPair(mir1X, mir1Y), mir1Rot, "1", <tuple-to-intpair>(<add; inc>(mirNum, addModRef), 1), <index(|<subt>(modNum, modNum1))> resMods*)> [];
+				resMirs* := <add-mirror(|IntPair(mir2X, mir2Y), mir2Rot, "0", connectPort, <index(|<subt>(modNum, modNum1))> resMods*)> mirs1*
 			else
 				if <eq>(outOrientation, 0) then
 					mirX := <addS>(<intpair-getx> outPos, "32");
@@ -408,12 +423,10 @@ rules
 					mirY := <intpair-gety> outPos
 				end end end;
 				mirRot := <int-to-string>(<mod>(<add>(<mul>(outOrientation, 90), 270), 360));
-				addMirNum := 1;
-				newMods* := <map(increase-module-num-by(gt|1, modNum1))> mods*;
-				thisMod := <index(|<subt>(modNum, modNum1))> newMods*;
-				newMod := <module-set-source(|portNum, IntPair(<addS>("1", <int-to-string> addModRef), "1"))> thisMod;
-				newerMods* := <set-index>(<subt; dec>(modNum, modNum1), newMod, newMods*);
-				resMods* := <add-mirror(|IntPair(mirX, mirY), mirRot, "1", connectPort, <index(|<subt>(modNum, modNum1))> newerMods*)> newerMods*
+				thisMod := <index(|<subt>(modNum, modNum1))> mods*;
+				newMod := <module-set-source(|portNum, IntPair(<addS>("1", <add; int-to-string>(mirNum, addModRef)), "-1"))> thisMod;
+				resMods* := <set-index>(<subt; dec>(modNum, modNum1), newMod, mods*);
+				resMirs* := <add-mirror(|IntPair(mirX, mirY), mirRot, "1", connectPort, <index(|<subt>(modNum, modNum1))> resMods*)> []
 			end end
 					
 	add-mirror(|loc, rot, mir, source, currentMod):

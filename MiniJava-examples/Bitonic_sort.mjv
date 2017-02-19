@@ -12,7 +12,7 @@ FuncBlock(NW, (1022, 429), 441, 1112, ((0, 0), 90, 1) ((0, 138), 90, 1) ((0, 0),
 
 component main<in[8] | out[8]>(){
 	int t;
-	t = 2;
+	t = 3;
 
 	in[0:2^t] => bitonic_sort(t, 0) => out[0:2^t];
 }
@@ -21,7 +21,7 @@ component bitonic_sort<in[2^n] | out[2^n]>(int n, int inv){
 	int i;
 	int j;
 	if n== 1 then
-		in[0:2] => sort2 => out[0:2];
+		in[0:2] => sort2(inv) => out[0:2];
 	else 
 		in[0:2^n] => bitonic_sort(n-1, 0) ++ bitonic_sort(n-1, 1) *_I_* 
 			perfect_shuffle(n) *_I_* bitonic_merge(n, inv) => out[0:2^n];
@@ -29,15 +29,15 @@ component bitonic_sort<in[2^n] | out[2^n]>(int n, int inv){
 
 component bitonic_merge<in[2^n] | out[2^n]>(int n, int inv){
 	if n==1 then 
-		in[0:2] => sort2 => out[0:2];
+		in[0:2] => sort2(inv) => out[0:2];
 	else
-		in[0:2^n] => copy[2^(n-1)](sort2) *_I_* butterfly(n) *_I_* bitonic_merge(n-1, inv) ++ bitonic_merge(n-1, inv) => out[0 : 2^n];
+		in[0:2^n] => copy[2^(n-1)](sort2(inv)) *_I_* butterfly(n) *_I_* bitonic_merge(n-1, inv) ++ bitonic_merge(n-1, inv) => out[0 : 2^n];
 }
 
 component perfect_shuffle<in[2^n] | out[2^n]>(int n){
 	int Psize;
 	Psize = 2^n;
-	zip(in[0:Psize/4], in[Psize/2 : 3*Psize/4]) ++ zip(in[Psize/4:Psize/2], in[3*Psize/4 : Psize]) => out[0:2^n];
+	zip(in[0:Psize/2], in[Psize/2 : Psize]) => out[0:2^n];
 }
 
 component butterfly<in[2^n] | out[2^n]>(int n){

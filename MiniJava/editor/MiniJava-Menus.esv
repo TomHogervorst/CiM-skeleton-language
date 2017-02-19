@@ -7,7 +7,6 @@ menus
     action: "Format"               		= editor-format (realtime) (source)
     action: "Show abstract syntax" 		= debug-show-aterm (realtime) (meta) (source)
     action: "Show dereferenced syntax"  = debug-show-deref (realtime) (meta)
-    action: "Check signal sizes"  		= debug-check-signals (realtime) (meta)
     action: "Show DFG"             		= debug-show-dfg (realtime) (meta)
     action: "Show mapping"         		= debug-show-mapping (realtime) (meta)
     action: "Generate SystemC"			= generate-systemc (realtime) (meta)

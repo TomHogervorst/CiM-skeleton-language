@@ -87,6 +87,8 @@ context-free priorities
 }>{right:
 	Exp.Connect
 }>{left:
+	Statement.Accolades
+}>{left:
 	Statement.IfThenElse
 	Statement.WhileLoop
 	Statement.ForLoop
