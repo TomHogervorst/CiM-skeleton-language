@@ -1,0 +1,124 @@
+module program-trans
+
+imports
+
+  libstratego-gpp
+  src-gen/signatures/CiMDSL-sig
+  src-gen/signatures/FuncBlock-sig
+  src-gen/signatures/Location-sig
+  src-gen/signatures/IntPair-sig
+  src-gen/signatures/Component-sig
+  signal-trans
+  component-trans
+  funcblock-trans
+  location-trans
+  intpair-trans
+  helper
+  exp-trans
+  statement-trans
+
+rules
+	  		
+  keep-if(condition):
+  	element -> res*
+  	with
+  	if <condition> element then
+  		res* := [element]
+  	else
+  		res* := []
+  	end
+  	  
+  get-funcblock(|i):
+    Program(funcblock*, _, _, _) -> lib
+    with
+   	  if <eq> (i, 0)
+   	  then lib := FuncBlock("NOP", IntPair("32","1"),"0", "0", [Location(IntPair("0", "0"), "0", "0")], [Location(IntPair("0", "1"), "0", "1")])
+   	  else
+   	  	if <eq> (i, -1) then
+   	  		lib := FuncBlock("M1", IntPair("32","32"),"0", "0", [Location(IntPair("0", "0"), "90", "1")], [Location(IntPair("0", "0"), "0", "0")])
+   	  	else
+   	  		if <eq> (i, -2) then
+   	  			lib := FuncBlock("M2", IntPair("32","32"),"0", "0", [Location(IntPair("0", "0"), "0", "0")], [Location(IntPair("0", "0"), "90", "0")])
+   	  		else
+      			len := <length> funcblock*
+      			; if <geq> (len, i)
+        			then lib := <index(|i)> funcblock* 
+        			else <debug(!"Index is too large: ")> i
+        		end
+        	end
+        end
+       end
+       
+   get-funcblock-input-port-y(|l, i):
+   	Program(funcblock*, _, _, _) -> yLoc
+   	with
+   		if <eq> (l, 0) then
+   			lib := FuncBlock("NOP", IntPair("32","1"),"0", "0", [Location(IntPair("0", "0"), "0", "0")], [Location(IntPair("0", "1"), "0", "1")])
+		else
+			if <eq> (l, -1) then
+   	  			lib := FuncBlock("M1", IntPair("32","32"),"0", "0", [Location(IntPair("16", "0"), "90", "1")], [Location(IntPair("0", "16"), "0", "0")])
+   	  		else
+   	  			if <eq> (l, -2) then
+   	  				lib := FuncBlock("M2", IntPair("32","32"),"0", "0", [Location(IntPair("0", "16"), "0", "0")], [Location(IntPair("16", "0"), "90", "0")])
+   	  			else
+   					lib := <index(|l)> funcblock*
+   				end
+   			end
+   		end;
+   		inport := <funcblock-get-input(|i)> lib;
+   		bottomLeft := <location-get-bottom-left(|IntPair("32", "1"))> inport;
+   		yLoc := <intpair-gety; string-to-int> bottomLeft
+   		
+   get-funcblock-output-port-y(|l, i):
+   	Program(funcblock*, _, _, _) -> yLoc
+   	with
+   		if <eq> (l, 0) then
+   			lib := FuncBlock("NOP", IntPair("32","1"),"0", "0", [Location(IntPair("0", "0"), "0", "0")], [Location(IntPair("0", "1"), "0", "1")])
+		else
+   			lib := <index(|l)> funcblock*
+   		end;
+   		inport := <funcblock-get-output(|i)> lib;
+   		bottomLeft := <location-get-bottom-left(|IntPair("32", "1"))> inport;
+   		yLoc := <intpair-gety; string-to-int> bottomLeft 
+       
+   get-component(|i):
+    Program(_, _, comps*, _) -> comp
+    with
+   	  len := <length> comps*
+      ; if <geq> (len, i)
+        then comp := <index(|i)> comps* 
+        else <debug(!"Index is too large: ")> i
+       end
+       
+    get-main-sizes:
+    	Program(_, Main(insigs*, outsigs*, _, statement), _, _) -> (inInt, outInt, signalSizes*)
+    	with
+    		inInt := <map(sigarg-getsize(|[])); foldr(!0, add)> insigs*;
+    		outInt := <map(sigarg-getsize(|[])); foldr(!0, add)> outsigs*;
+    		signalSizes* := <statement-get-sigdecls; map(signal-decl-get-size)> statement
+    		
+    get-main-signal-num:
+    	Program(_, Main(insigs*, outsigs*, _, statement), _, _) -> signalSize
+    	with
+    		signals* := <statement-get-sigdecls> statement;
+    		inoutsigs* := [insigs*, outsigs*];
+			totalsigs* := [inoutsigs*, signals*];
+    		signalSize := <length> totalsigs*
+    		
+    get-comp-in-out-nums(|index, varArray*):
+    	Program(_, _, comps*, _) -> inOutSizes
+    	with
+    		comp := <index(|index)> comps*;
+    		inOutSizes := <component-get-sizes(|varArray*)> comp
+    		
+    get-comp-signal-sizes(|index):
+    	Program(_, _, comps*, _) -> sigSizes*
+    	with
+    		comp := <index(|index)> comps*;
+    		sigSizes* := <get-signal-sizes> comp
+    		
+    get-comp-signal-num(|index):
+    	Program(_, _, comps*, _) -> signalSize
+    	with
+    		comp := <index(|index)> comps*;
+    		signalSize := <get-num-sigs> comp

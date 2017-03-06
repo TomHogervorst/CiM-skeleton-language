@@ -1,0 +1,125 @@
+module Expression
+
+imports
+  Common
+  
+sorts
+  Exp
+  ModExp
+  Op
+  Attr
+  ConnectOp
+  
+context-free start-symbols
+  Exp
+  ConnectOp
+  
+template options
+  tokenize: "("
+  keyword -/- [a-zA-Z]
+
+context-free syntax
+  Exp = <(<Exp>)>  {bracket}
+  Exp.VarRef = <<ID>> {non-assoc}
+  Exp.Int = <<INT>> {non-assoc}
+  Exp.True = <true>  {non-assoc} 
+  Exp.False = <false> {non-assoc}
+  
+  Op.Plus = <+>
+  Op.Minus = <->
+  Op.Times = <*>
+  Op.DividedBy = </>
+  Op.ToThePower = <^>
+  Op.Modulo = <%>
+  Op.GreaterThan = <\>>
+  Op.LessThan = <\<>
+  Op.EqualTo = <==>
+  Op.And = <&&>
+  Op.Or = <||>
+  Op.ConOp = <<ConnectOp>>
+  Op.AppendTo = <++>
+  Op.MaxOf = <^_^>
+
+  Exp.BinOp = <<Exp> %<Op>% <Exp>> {left}
+  
+  Attr.Outport = <outport(<Exp>)>
+  Attr.Outports = <outports>
+  Attr.OutportPos = <outport(<Exp>).pos>
+  Attr.OutportRot = <outport(<Exp>).rot>
+  Attr.OutportMir = <outport(<Exp>).mir>
+  Attr.GlobalOutport = <outport*(<Exp>)>
+  Attr.GlobalOutports = <outports*>
+  Attr.Inport = <inport(<Exp>)>
+  Att.Inports = <inports>
+  Attr.InportPos = <inport(<Exp>).pos>
+  Attr.InportRot = <inport(<Exp>).rot>
+  Attr.InportMir = <inport(<Exp>).mir>
+  Attr.GlobalInport = <inport*(<Exp>)>
+  Attr.GlobalInports= <inports*>
+  Attr.Position = <pos>
+  Attr.Size = <size>
+  Attr.Delay = <delay>
+  Attr.Time = <time>
+  Attr.Rotation = <rot>
+  Attr.Mirror = <mir>
+  
+  /*Int to Int*/
+  Exp.Add = <<Exp> + <Exp>> {left}
+  Exp.Sub = <<Exp> - <Exp>> {left}
+  Exp.Mul = <<Exp> * <Exp>> {left}
+  Exp.Div = <<Exp> / <Exp>> {left}
+  Exp.Mod = <<Exp> % <Exp>> {left}
+  Exp.Log2 = <log2(<Exp>)> {left}
+  Exp.Power = <<Exp>^<Exp>> {left}
+  Exp.Max = <max(<Exp>, <Exp>)> {left}
+  
+  /*Int to Bool*/
+  Exp.GT = <<Exp> \> <Exp>> {left}
+  Exp.LT = <<Exp> \< <Exp>> {left}
+  Exp.EQ = <<Exp> == <Exp>> {left}
+  
+  /*Bool to Bool*/
+  Exp.AND = <<Exp> && <Exp>> {left}
+  Exp.OR = <<Exp> || <Exp>> {left}
+  Exp.NOT = <!<Exp>> {right}
+  
+  /*Int to Array*/
+  Exp.ManualDefinition = <{<{Exp ", "}+>}>
+  Exp.Range = <<Exp> : <Exp>> {left}
+  Exp.Interval = <<Exp> : <Exp> : <Exp>> {left, prefer}
+  Exp.Reverse = <rev(<Exp>)> {non-assoc}
+  Exp.FoldRight = <foldr\<<Op>\>(<Exp>)>{left}
+  Exp.FoldLeft = <foldl\<<Op>\>(<Exp>)>{left}
+  Exp.Map = <map\<<ID> = <Exp>\>(<Exp>)>{left}
+  Exp.Repeat = <copy[<Exp>](<Exp>)>{left}
+   
+  /*Array to Array*/
+  Exp.Append = <<Exp> ++ <Exp>> {left}
+  Exp.Increment = <incr(<Exp>, <Exp>)>{left}
+  Exp.ShiftRight = <shiftr(<Exp>, <Exp>)>{left}
+  Exp.ShiftLeft = <shiftl(<Exp>, <Exp>)>{left}
+  Exp.PartOfArray = <<Exp>[<Exp>]>{left}
+  
+  /*Skeleton expressions*/  
+  ConnectOp.ConnOp = <<CO>>
+  ConnectOp.Linear = <*_I_*>
+  ConnectOp.HTree = <*_H_*>
+  ConnectOp.Crowd = <*_C_*>
+  
+  Exp.Connect = <<Exp> <ConnectOp> <Exp>> {right}
+  Exp.CompRef= <<ID>(<{Exp ", "}*>)>
+  Exp.FuncBlockNum  = <#<INT>>
+  Exp.Nop = <NOP>
+  
+  /*Component expressions*/
+  
+  ModExp.ModRef = <<ID>[<Exp>]>
+  ModExp.SingleModRef = <<ID>>
+  Exp.CompAttr = <<ModExp>.<Attr>> {left}
+  Exp.CoordVal = <(<Exp>, <Exp>)>{left}
+  Exp.CoordX = <<Exp>.X>{left}
+  Exp.CoordY = <<Exp>.Y>{left}
+  Exp.CoordTranslate = <<Exp>.translate(<Exp>)>{left}
+  Exp.CoordRotate = <<Exp>.rotate(<Exp>)>{left}
+  Exp.CoordMirrorX = <<Exp>.mirrorX(<Exp>)>{left}
+  Exp.CoordMirrorY = <<Exp>.mirrorY(<Exp>)>{left}

@@ -1,5 +1,0 @@
-module MiniJava-Colorer
-
-imports MiniJava-Colorer.generated
-
-colorer

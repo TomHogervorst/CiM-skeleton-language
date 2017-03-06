@@ -1,0 +1,79 @@
+module CiMDSL
+
+imports
+  
+  Common
+  Expression
+  Statement
+  Signal
+  Component
+  FuncBlock
+  Skeleton
+  mapped/MappedSystem
+  graphics/DrawSystem
+  SystemC/SystemCSystem
+
+context-free start-symbols
+  
+  Start
+
+context-free syntax
+  
+  Start.Empty = <>
+  Start.Program = <
+<{FuncBlock "\n"}*;hide>
+
+<MainComponent>
+
+<{Component "\n\n"}*>
+
+<{Skeleton "\n\n"}*>
+>
+  Start.MappedProgram = <<MappedSystem>>
+  Start.DrawSystem = <<DrawSystem>>
+  Start.SystemCSystem = <<SystemCSystem>>
+  
+
+context-free priorities
+{left:
+	Exp.CompAttr
+	Exp.CoordX
+	Exp.CoordY
+}>{left:
+	Exp.Power
+}>{left:
+	Exp.Mul
+	Exp.Div
+	Exp.Mod
+}>{left:
+	Exp.Add
+	Exp.Sub
+}>{left:
+	Exp.GT
+	Exp.LT
+	Exp.EQ
+}>{left:
+	Exp.AND
+	Exp.OR
+}>{left:
+	Exp.Range
+	Exp.Interval
+}>{left:
+	Exp.PartOfArray
+}>{left:
+	Exp.Max
+	Exp.CoordVal
+	Exp.CoordTranslate
+	Exp.CoordRotate
+	Exp.CoordMirrorX
+	Exp.CoordMirrorY
+}>{left:
+	Exp.Repeat
+	Signal.Zip
+
+}>{left:
+	Exp.Append
+	Signal.ConcurSig
+}>{right:
+	Exp.Connect
+}

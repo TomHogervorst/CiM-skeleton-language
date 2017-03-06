@@ -1,5 +1,0 @@
-module MiniJava-Refactorings
-
-imports MiniJava-Refactorings.generated
-
-refactorings

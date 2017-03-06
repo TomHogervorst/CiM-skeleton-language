@@ -1,0 +1,119 @@
+module gen-drawing
+
+imports
+
+  libstratego-gpp
+  libspoofax/sdf/pp
+  pp
+  src-gen/signatures/-
+  src-gen/pp/CiMDSL-parenthesize
+  program-trans
+  funcblock-trans
+  intpair-trans
+  location-trans
+  module-trans
+  trans/gen-mapping
+  trans/gen-dfg
+  src-gen/signatures/graphics/-
+
+rules
+  
+  gen-drawing:
+    ast -> result
+    with
+      dfg := <gen-dfg> ast
+	  ; drawing := <dfg-to-drawing(|ast)> dfg
+      ; result := <pp-start-symbols; !V([], <id>); box2text-string(|120)> drawing
+		
+	dfg-to-drawing(|ast):
+		System( ModuleList*, InputRegs*, OutputRegs*, size, delay, energy)-> res
+		with
+			i := 1;
+			(modules*, outputPorts*) := <modules-to-drawing(|ast, [])> ModuleList*;
+			maxSize := <get-max-size> size;
+			res := DrawSystem(maxSize, maxSize, maxSize, maxSize, modules*)
+			
+	get-max-size:
+		IntPair(x, y) -> max
+		with
+			if <gt>(<string-to-int> x, <string-to-int> y) then
+				max := <addS> (x, "200")
+			else
+				max := <addS> (y, "200")
+			end	
+
+	modules-to-drawing(|ast, outputPorts*):
+		[Module | ModuleList*] -> (res*, resOutputPorts*)
+		with
+			number := <module-get-id; string-to-int> Module
+			;lib := <get-funcblock(|number)> ast
+			;(mappedModule*, additionalOutputPorts) := <module-to-drawing(|lib, outputPorts*)> Module
+			; newOutputPorts* := [outputPorts*, additionalOutputPorts]
+			;(mappedModules*, resOutputPorts*) := <modules-to-drawing(|ast, newOutputPorts*)> ModuleList*
+			;res* := [mappedModule*, mappedModules*]
+			  
+	modules-to-drawing(|ast, outputPorts*):
+		[] -> (res*, outputPorts*)
+		with
+			res* := []
+
+			   
+	module-to-drawing(|lib,  allOutputPorts*):
+		Module(typeNum, time, location, sources*) -> (res*, outputPorts*)
+		with
+			rotation := <location-get-angle> location
+			;moduleSize := <funcblock-get-size> lib
+			; inputPorts* := <funcblock-get-inputs; map(location-inherit(|location))> lib
+			; outputPorts* := <funcblock-get-outputs; map(location-inherit(|location))> lib
+			; drawnModule := <draw-location> (location, moduleSize)
+			; connections* := <draw-connections(|allOutputPorts*)>(sources*, inputPorts*)
+			;res* := [DrawModule(drawnModule, <map(draw-port)>inputPorts*, <map(draw-port)>outputPorts*, connections*)]
+	
+	draw-location:
+		(Location(IntPair(x, y), angle, mir), IntPair(xsize, ysize)) -> res
+		with
+			res := DrawLocation(x, y, xsize, ysize, angle, mir)
+			
+	draw-port:
+		port  -> res
+		with
+			res := <draw-location>(port, IntPair("32", "1"))
+			
+	draw-connections(|allOutputPorts*):
+		([IntPair(modNum, portNum) | sources*], [inputPort | inputPorts*]) -> res*
+		with
+			if <gt>(<string-to-int> modNum, 0) then
+				(targetX, targetY) := <get-middle-of-port> inputPort;
+				sourcePort := <index(|<string-to-int> modNum); index(|<string-to-int> portNum)> allOutputPorts*;
+				(sourceX, sourceY) := <get-middle-of-port> sourcePort;
+				thisConnection* := [DrawConnection(sourceX, sourceY, targetX, targetY)];
+				thatConnections* := <draw-connections(|allOutputPorts*)>(sources*, inputPorts*);
+				res* := [thisConnection*, thatConnections*]
+			else
+				res* := <draw-connections(|allOutputPorts*)>(sources*, inputPorts*)
+			end
+			
+	draw-connections(|allOutputPorts*):
+		([], ports) -> res*
+		with
+			res* := []
+			
+	get-middle-of-port:
+		Location(IntPair(x, y), angle, mir) -> (resX, resY)
+		with
+			switch !angle
+			case ?"0":
+				resX := <addS>(x, "16")
+				; resY := y
+			case ?"90":
+				 resX := x
+				; resY := <addS>(y, "16")
+			case ?"180":
+				resX := <subtS>(x, "16")
+				; resY := y
+			case ?"270": 
+				resX := x
+				; resY := <subtS>(y, "16")
+			otherwise:
+				<debug(!"Invalid angle: ")> angle
+			end

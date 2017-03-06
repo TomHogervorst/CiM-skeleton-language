@@ -1,0 +1,48 @@
+module funcblock-trans
+
+imports
+  libstratego-gpp
+  src-gen/signatures/FuncBlock-sig
+  
+rules
+  
+	funcblock-get-size:
+		FuncBlock(_, size, _, _, _, _) -> size
+		
+	funcblock-get-latency:
+		FuncBlock(_, size, latency, _, _, _) -> latency
+		
+	funcblock-get-energy:
+		FuncBlock(_, size, latency, energy, _, _) -> energy
+		
+	funcblock-get-inputs:
+		FuncBlock(_, _, _, _, input*, output*) -> input*
+		
+	funcblock-get-outputs:
+		FuncBlock(_, _, _, _, input*, output*) -> output*
+		
+	funcblock-get-input-num:
+		FuncBlock(_, _, _, _, input*, output*) -> <length>input*
+		
+	funcblock-get-output-num:
+		FuncBlock(_, _, _, _, input*, output*) -> <length>output*
+		
+	funcblock-get-input(|i):
+		FuncBlock(_, size, _, _, input*, _) -> location
+		with
+	      len := <length> input*
+	      ; if <geq> (len, i)
+	        then location := <index(|i)> input* 
+	        else <debug(!"Index is too large: ")> i
+	        end
+		
+	funcblock-get-output(|i):
+		FuncBlock(_, size, _, _, input*, output*) -> location
+		with
+	      len := <length> output*
+	      ; if <geq> (len, i)
+	        then location := <index(|i)> output* 
+	        else <debug(!"Index is too large: ")> i
+	        end
+	        
+	        

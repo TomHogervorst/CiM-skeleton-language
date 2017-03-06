@@ -1,0 +1,150 @@
+module location-trans
+
+imports
+
+  libstratego-gpp
+  src-gen/signatures/Location-sig
+  src-gen/signatures/IntPair-sig
+  intpair-trans
+  helper
+
+rules
+	
+	location-get-pos:
+		Location(pos, _, _) -> pos
+	
+	location-get-angle:
+		Location(_, angle, _) -> angle
+		
+	location-get-flipped-angle:
+		Location(_, angle, mir) -> <mod; int-to-string>(<add>(<mul>(<string-to-int> mir, 180), <string-to-int> angle), 360)
+	
+	location-get-mir:
+		Location(_, _, mir) -> mir
+	
+	location-translate(|shift):
+		Location(pos, angle, mir) -> Location(newpos, angle, mir)
+		with
+			newpos := <intpair-add(|shift)> pos
+			
+	location-shiftX(|shiftX):
+		Location(pos, angle, mir) -> Location(newpos, angle, mir)
+		with
+			newpos := <intpair-addX(|shiftX)> pos
+			
+	location-shiftY(|shiftY):
+		Location(pos, angle, mir) -> Location(newpos, angle, mir)
+		with
+			newpos := <intpair-addY(|shiftY)> pos
+	
+	// parameter a should be integer
+	location-rotate(|a):
+		Location(pos, angle, mir) -> Location(pos, newangle, mir)
+		with
+			temp := <add> (<string-to-int>angle, a)
+			; newangle := <mod; int-to-string> (temp, 360)
+	
+	//parameter a should be an integer
+	location-rotate-around-origin(|a):
+		Location(pos, angle, mir) -> Location(newPos, newAngle, mir)
+		with
+			newPos := <intpair-rotate(|<int-to-string>a)> pos;
+			newAngle := <modS>(<addS>(angle, <int-to-string> a), "360")
+			
+	//parameter flip should be an integer
+	location-flip-in-X(|flip):
+		Location(pos, angle, mir) -> Location(newPos, angle, newMir)
+		with
+			if <eq>(flip, 1) then
+				newMir := <modS>(<addS>(mir, <int-to-string> flip), "2");
+				newPos := <intpair-mirror(|1)> pos
+			else
+				newPos := pos;
+				newMir := mir
+			end
+	
+	location-mirror:
+		Location(pos, angle, mir) -> Location(pos, angle, newmir)
+		with
+			if <is-one> mir
+			then newmir := "0"
+			else newmir := "1"
+			end
+			
+	location-get-bottom-left(|size):
+		location -> <intpairs-get-bottom-left> pair*
+		with
+			pair* := < map(intpair-transform(|location))> [IntPair("0", "0"), size]
+	
+	location-get-top-right(|size):
+		location -> <intpairs-get-top-right> pair*
+		with
+			pair* := <map(intpair-transform(|location))> [IntPair("0", "0"), size]
+	
+	// can also be seen as transform(|mod)
+	location-inherit(|mod):
+		Location(pos, angle, mir) -> Location(newpos, newangle, newmir)
+		with
+			if <eq> (<string-to-int>mir, <location-get-mir; string-to-int>mod)
+			then newmir := "0"
+			else newmir := "1"
+			end
+			; newpos := <intpair-transform(|mod)> pos
+			; temp := <addS; string-to-int> (angle, <location-get-angle> mod)
+			; if <location-get-mir; is-one> mod
+			  then switch <string-to-int> angle
+			  		case ?90: temp1 := <add> (temp, 180)
+			  		case ?270: temp1 := <add> (temp, 180)
+			  		otherwise: temp1 := temp
+			  		end
+			  else temp1 := temp
+			  end
+			; newangle := <mod; int-to-string> (temp1, 360)
+	
+	rotate-to(|newAngle, newMir):
+		Location(pos, angle, mir) -> res 
+		with
+			angleDiff := <subt>(newAngle, <string-to-int> angle);
+			if <eq>(newMir, <string-to-int>mir) then
+				res := angleDiff
+			else
+				res := <mod>(<add>(angleDiff, 180), 360)
+			end	
+	
+  /**
+   * Calculate the transform location for cur moving to a toget state
+   *
+   * location-adjust-to-target(|cur) target -> transform location
+   *
+   * @type Location -> Location
+   */
+	location-adjust-to-target(|cur):
+		Location(pos, angle, mir) -> Location(newpos, newangle, newmir)
+		with
+			if <eq> (<string-to-int>mir, <location-get-mir; string-to-int>cur)
+			then newmir := "1"
+			else newmir := "0"
+			end
+			; a1 := <location-get-angle; string-to-int> cur
+			; if <is-one> newmir
+			  then a2 := <swap-90-270> a1
+			  else a2 := a1
+			  end
+			; a3 := <subt> (<string-to-int> angle, a2)
+			; temp := <mod> (a3, 360)
+			; if <gt> (0, temp)
+			  then newangle := <add; int-to-string> (temp, 360)
+			  else newangle := <int-to-string> temp
+			  end
+			; p1 := <location-get-pos; intpair-transform(|IntPair("0", "0"), newangle, newmir)> cur
+			; newpos := <intpair-sub> (pos, p1)
+
+	location-adjust-to-target:
+		(cur, target) -> <location-adjust-to-target(|cur)> target
+		
+	location-get-orientation:
+		Location(pos, angle, mir) -> res
+		with
+			 realAngle := <mod>(<add>(<string-to-int> angle, <mul>(<string-to-int> mir, 180)), 360);
+			 res := <div>(realAngle, 90)
+			  

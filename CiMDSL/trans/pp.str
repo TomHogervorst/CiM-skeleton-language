@@ -1,0 +1,61 @@
+module pp
+
+imports
+
+	libstratego-gpp
+	pp/-
+	pp/graphics/-
+	pp/mapped/-
+	pp/SystemC/-
+	libspoofax/sdf/pp
+	libspoofax/editor/refactoring/-
+
+
+rules
+	
+  pp-CiMDSL-string =
+    parenthesize-CiMDSL
+    ; prettyprint-SDF-start-symbols
+    ; !V([], <id>)
+    ; box2text-string(|120)
+      
+  pp-partial-CiMDSL-string =
+    parenthesize-CiMDSL
+    ; prettyprint-example
+    ; !V([], <id>)
+    ; box2text-string(|120)
+      
+  pp-debug :
+    ast -> result
+    with
+       result := <pp-CiMDSL-string> ast
+    <+ <bottomup(try(not(is-string); not(is-list); not(pp-CiMDSL-string); debug(!"cannot pp ")))> ast
+    ;  result := ""
+
+rules
+  
+  /**
+  * Given an old AST and a new AST, pretty-prints the new AST while presevering 
+  * layout (e.g. whitespacing and comments) associated with the old AST.
+  *
+  * Example:
+  *   new-text := <construct-textual-change> (old-ast, new-ast)
+  */
+  construct-textual-change = construct-textual-change(pp-partial-CiMDSL-string, parenthesize, override-reconstruction, resugar)
+  
+rules
+	
+	pp-start-symbols:
+  	startSymbols -> <prettyprint-SDF-start-symbols> startSymbols
+  
+  pp-CiMDSL:
+    ast -> result
+    with
+      result := <parenthesize-CiMDSL; prettyprint-SDF-start-symbols; !V([], <id>); box2text-string(|120)> ast
+      
+  pp-partial-CiMDSL:
+    ast -> result
+    with
+      result := <parenthesize-CiMDSL; prettyprint-example; !V([], <id>); box2text-string(|120)> ast
+
+

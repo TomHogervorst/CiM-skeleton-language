@@ -1,0 +1,181 @@
+module gen-mapping
+
+imports
+
+  libstratego-gpp
+  src-gen/signatures/-
+  src-gen/signatures/mapped/-
+  pp/CiMDSL-parenthesize
+  program-trans
+  funcblock-trans
+  intpair-trans
+  location-trans
+  module-trans
+  gen-dfg
+  system-trans
+  pp
+  pp/-
+  libspoofax/sdf/pp
+  helper
+
+rules
+  
+  gen-mapping:
+    ast -> result
+    with
+      dfg := <gen-dfg> ast
+	  ; mapping := <dfg-to-mapping(|ast)> dfg
+      ; result := <pp-start-symbols; !V([], <id>); box2text-string(|120)> mapping
+		
+	dfg-to-mapping(|ast):
+		System( ModuleList*, InputRegs*, OutputRegs*, size, delay, energy)-> res
+		with
+			outputs* := <map-with-index(to-output-index)> OutputRegs*;
+			mappedModules := <modules-to-mapping(|ast, 1, InputRegs*, outputs*, [])> ModuleList*;
+			intDecls := <map(modules-get-int); concat; map(to-int-decl)> mappedModules;
+			res := MappedSystem(intDecls, mappedModules) 
+	
+	modules-get-int:
+		SingleModule(num, _) -> res*
+		with
+			res* := [num]
+		
+	modules-get-int:
+		OutputModule(_, _) -> res*
+		with
+			res* := []
+	
+	to-int-decl:
+		int -> IntDecl(int)
+	
+	to-output-index:
+		(index, IntPair(x, y)) -> (<string-to-int> x, index)
+	
+	/*modules-to-mapping(|ast, num, inputs*, outputs*, outputPorts*):
+		[Module("0", _, _, _) | ModuleList*] -> res*
+		with
+			newNum := <addi> (num, 1);
+			emptyPort* := ["empty"];
+			newOutputPorts* := [outputPorts*, emptyPort*];
+			res* := <modules-to-mapping(|ast, newNum, inputs*, outputs*, newOutputPorts*)> ModuleList*
+	*/
+	modules-to-mapping(|ast, num, inputs*, outputs*, outputPorts*):
+		[mod | moduleList*] -> res*
+		with
+			number := <module-get-id; string-to-int> mod
+			;lib := <get-funcblock(|number)> ast
+			;(outputPort, (numString, mappedModule)) := <module-to-mapping(|lib, num, inputs*, outputPorts*)> mod
+			;if <lookup>(num, outputs*) then
+			  mappedModule* := [OutputModule(<lookup; int-to-string>(num, outputs*), mappedModule)]
+			else
+			  mappedModule* := [SingleModule(numString, mappedModule)]
+			end
+			; newOutputPorts* := [outputPorts*, outputPort]
+			;mappedModules* := <modules-to-mapping(|ast, <inc> num, inputs*, outputs*, newOutputPorts*)> moduleList*
+			;res* := [mappedModule*, mappedModules*]
+			  
+	modules-to-mapping(|ast, num, inputs*, outputs*, outputPorts*):
+		[] -> res*
+		with
+			res* := []
+
+			   
+	module-to-mapping(|lib, num, inputs*, outputPorts*):
+		Module(typeNum, time, location, sources*) -> (outputPort, res)
+		with
+			size := <funcblock-get-input-num> lib
+			;rotation := <location-get-angle> location
+			;moduleSize := <funcblock-get-size; rotate-if-needed(|rotation)> lib
+			; moduleTime := <funcblock-get-latency> lib
+			; energy := <funcblock-get-energy> lib
+			; inputPorts* := <funcblock-get-inputs; map(location-inherit(|location); map-location(|IntPair("32","1")))> lib
+			; outputPort := <funcblock-get-outputs; index(|1); location-inherit(|location); map-location(|IntPair("32","1"))> lib
+			;  inList* := <inputs-to-list(|num, inputs*)>sources*
+			; numString := <int-to-string> num
+			; mappedPosition := <map-location(|<funcblock-get-size> lib)> location
+			; connections* := <copy>(<length> inputPorts*, "1")
+			; mappedInputPorts* := < map-input-ports>( inList*, connections*, inputPorts*)
+			;res := (numString, MappedModule(typeNum, mappedPosition, <intpair-getx> moduleSize, <intpair-gety> moduleSize, time, moduleTime, energy, outputPort, mappedInputPorts*))
+			 
+	rotate-if-needed(|angle):
+		IntPair(x,y) -> IntPair(newX, newY)
+		with
+			switch !angle
+			case ?"0":
+				newX := x
+				; newY := y
+			case ?"90":
+				newX := y
+				; newY := x
+			case ?"180":
+				newX := x
+				; newY := y
+			case ?"270":
+				newX := y
+				; newY := x
+			otherwise:
+				<debug(!"Invalid angle: ")> angle
+			end
+			
+	map-location(|size):
+		Location(IntPair(x, y), rot, mir) -> MappedLocation(<intpair-getx> newPos, <intpair-gety> newPos, rot)
+		with
+			newPos := <location-get-bottom-left(|size)> Location(IntPair(x, y), rot, mir)
+		
+	map-input-port:
+		(("in", inNum), num, Location) -> MappedInputPort(inNum, num, Location)
+		
+	map-input-port:
+		(("m", mNum), num, Location) -> MappedModulePort(mNum, num, Location)
+		
+	map-input-ports:
+		([tuple | tuples*], [num | nums*], [location | locations*]) -> res*
+		with
+			thisRes* := [<map-input-port>(tuple, num, location)];
+			restRes* := <map-input-ports>(tuples*, nums*, locations*);
+			res* := [thisRes*, restRes*]
+	
+	map-input-ports:
+		([], [], []) -> res*
+		with
+			res* := []	
+			
+	inputs-to-list(|moduleNum, inputs*):
+		entries* -> res*
+		with
+			inputPorts* := <map(input-get-inputs); map-with-index(find-inputs(|moduleNum)); concat; qsort(lt-X); map(tuple-gety)> inputs*;
+			 modulePorts* := <find-module-ports> entries*;
+			res* := [inputPorts*, modulePorts*]
+			
+	find-inputs(|moduleNum):
+		(index, [input | inputs*]) -> res*
+		with
+			x := <intpair-getx; string-to-int> input;
+			if <eq> (x, moduleNum)
+			then tempRes* := [(<intpair-gety; string-to-int> input, ("in", <int-to-string> index))]
+			else tempRes* := []
+			end;
+			 restString* := <find-inputs(|moduleNum)>(index, inputs*);
+			res* := [tempRes*, restString*]
+			
+	find-inputs(|moduleNum):
+		(index, []) -> res*
+		with
+			res* := []
+		
+	find-module-ports:
+		[entry | entries*] -> res*
+		with
+			x := <intpair-getx> entry;
+			if <eq>(<string-to-int> x, 0) then
+				res* := <find-module-ports> entries*
+			else
+				firstString* := [("m", x)];
+				restString* := <find-module-ports> entries*;
+				res* := [firstString*, restString*]
+			end
+			
+	find-module-ports:
+		[] ->  res*
+		with
+			res* := []

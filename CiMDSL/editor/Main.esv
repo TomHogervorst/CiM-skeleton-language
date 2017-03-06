@@ -1,0 +1,14 @@
+module Main
+
+imports
+
+  Syntax
+  Analysis
+  Generation
+
+language
+
+  extensions : cim
+
+  provider : target/metaborg/stratego.ctree
+  provider : target/metaborg/stratego-javastrat.jar

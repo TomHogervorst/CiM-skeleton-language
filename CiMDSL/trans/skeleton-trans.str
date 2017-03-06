@@ -1,0 +1,544 @@
+module skeleton-trans
+
+imports
+
+  libstratego-gpp
+  src-gen/signatures/Expression-sig
+  src-gen/signatures/System-sig
+  src-gen/signatures/IntPair-sig
+  src-gen/signatures/Location-sig
+  src-gen/signatures/Module-sig
+  src-gen/names/lib
+  gen-dfg
+  funcblock-trans
+  exp-trans
+  system-trans
+  module-trans
+  location-trans
+  program-trans
+  component-trans
+  intpair-trans
+  helper
+
+rules
+			  
+	skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*):
+		Connect(skel*, HTree(), r) -> (sys*, n*)
+		with
+			(preSys*, preN*) := <skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*)> r
+			; (postSys*, postN*) := <skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*)> skel*
+			; [numInt] := <take(|1)> postN*
+			; if <gt> (numInt, <mul> (2, <last> preN*))
+			  then <debug(!"The number is too large:")> numInt
+			  end
+			; sys* := <conc> (preSys*, postSys*)
+			; n* := <conc> (preN*,postN*)
+			  
+	skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*):
+		[skel | skels*] -> (sys*, n*)
+		with
+		(thisSys*, thisN*) := <skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*)> skel;
+		(thatSys*, thatN*) := <skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*)> skels*;
+		sys* := <merge-trees> (thisSys*, thisN*, thatSys*, thatN*);
+		n* := <uneven-zip(add)>(thatN*, thisN*)
+	
+	skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*):
+		FuncBlockNum(val) -> (sys*, n*)
+		with
+			sys* := [<ast-to-dfg(|ast, systemTuples*, skeletonList*); rotate-outport(|ast); add-tree-mirrors(|ast); system-move-to-origin(|ast)> FuncBlockNum(val)];
+			n* := [1]
+			
+	skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*):
+		Nop() -> (sys*, n*)
+		with
+			sys* := [<ast-to-dfg(|ast, systemTuples*, skeletonList*); system-rotate(|-90)> Nop()];
+			n* := [1]
+			
+	skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*):
+		CompRef(x, sizes) -> (sys*, n*)
+		with
+			system := <lookup>(x, systemTuples*);
+			if <eq>(<system-get-input-num> system, 2) then
+				if <eq>(<system-get-output-num> system, 1) then
+					sys* := [system];
+					n* := [1]
+				else
+					<debug(!"Not a 2 to 1 component: "); fail> system
+				end
+			else
+				<debug(!"Not a 2 to 1 component: "); fail> system
+			end
+			
+	skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*):
+		[] -> (sys*, n*)
+		with
+			sys* := [];
+			n* := []
+		
+	skeleton-get-tree-structure(|ast, systemTuples*, skeletonList*):
+		ske -> <debug(!"Not a structured tree: "); fail> ske
+		
+	rotate-outport(|ast):
+		System(mods*, inports*, outports*, size, time, energy) -> System(resMods*, inports*, outports*, size, time, energy)
+		with
+			outputPort1 := <index(|1)> outports*;
+			modNum := <intpair-getx; string-to-int> outputPort1;
+			portNum := <intpair-gety; string-to-int> outputPort1;
+			outport := <get-funcblock(|<index(|modNum); module-get-id; string-to-int> mods*); funcblock-get-output(|portNum)> ast;
+			angle := <mod>(<add>(<rotate-to(|90, 0)> outport, 360), 360);
+			newMods* := <map(module-apply-to-location(location-rotate(|angle)))> mods*;
+			if <eq> (angle, 180) then
+				flippedMods* := <map(module-apply-to-location(location-mirror))> newMods*;
+				pos := <modules-get-bottom-left(|ast)> flippedMods*;
+				resMods* := <modules-transform> (flippedMods*, Location(<intpair-neg> pos, "0", "0"))
+			else
+				pos := <modules-get-bottom-left(|ast)> newMods*;
+				resMods* := <modules-transform> (newMods*, Location(<intpair-neg> pos, "0", "0"))
+			end
+			
+	add-tree-mirrors(|ast):
+		System(mods*, inports*, outports*, size, time, energy) -> System(resMods*, resInports*, resOutports*, resSize, time, energy)
+		with
+			modId := <index(|1); module-get-id; string-to-int> mods*;
+			modLocation := <index(|1); module-get-location> mods*;
+			inport1 := <get-funcblock(|modId); funcblock-get-input(|1); location-inherit(|modLocation)> ast;
+			inport2 := <get-funcblock(|modId); funcblock-get-input(|2); location-inherit(|modLocation)> ast;
+			(newMods*, resInports*, resOutports*) := <add-tree-mirrors(|mods*, inports*, outports*, size)>(inport1, inport2);
+			resBL := <modules-get-bottom-left(|ast)> newMods*;
+			resSize := <intpair-sub>(<modules-get-top-right(|ast)> newMods*, resBL);
+			resMods* := <modules-shift-to-origin(|ast)> newMods*
+			
+	add-tree-mirrors(|mods*, inputs*, outputs*, size):
+		(Location(loc1, rot1, mir1), Location(loc2, rot2, mir2)) -> (resMods*, resInputs*, resOutputs*)
+		with
+			newRot1 := <mod>(<add>(<string-to-int> rot1, <mul>(<string-to-int> mir1, 180)), 360);
+			newRot2 := <mod>(<add>(<string-to-int> rot2, <mul>(<string-to-int> mir2, 180)), 360);
+			difference := <mod>(<subt; abs>(newRot1, newRot2), 360);
+			BL1 := <location-get-bottom-left(|IntPair("32", "1"))> Location(loc1, rot1, mir1);
+			BL2 := <location-get-bottom-left(|IntPair("32", "1"))> Location(loc2, rot2, mir2);
+			if <eq>(newRot1, 90) then
+				(newMods1*, mirs1*, newInputs1*) := <add-mirrors(|mods*, 0, 0, 1, inputs*, 0, 0, IntPair("0", "1"))>(Location(BL1, "0", "1"), [Location(loc1, rot1, mir1)]);
+				(newMods*, newInputs*, newOutputs*) := <merge-mirrors-and-modules(|0)> (newMods1*, mirs1*, newInputs1*, outputs*)
+			else if <eq>(newRot1, 270) then 
+				(newMods1*, mirs1*, newInputs1*) := <add-mirrors(|mods*, 0, 0, 1, inputs*, 0, 0, IntPair("0", "1"))>(Location(BL1, "180", "0"), [Location(loc1, rot1, mir1)]);
+				(newMods*, newInputs*, newOutputs*) := <merge-mirrors-and-modules(|0)> (newMods1*, mirs1*, newInputs1*, outputs*)
+			else if <eq>(newRot1, 180) then
+				(newMods1*, mirs1*, newInputs1*) := <add-mirrors(|mods*, 0, 0, 1, inputs*, 0, 0, IntPair("0", "1"))>(Location(IntPair("0", "0"), "180", "0"), [Location(loc1, rot1, mir1)]);
+				(newMods*, newInputs*, newOutputs*) := <merge-mirrors-and-modules(|0)> (newMods1*, mirs1*, newInputs1*, outputs*)
+			else
+				(newMods*, newInputs*, newOutputs*) := (mods*, inputs*, outputs*)
+			end end end;
+			if <eq>(newRot2, 90) then
+				(newMods2*, mirs2*, newInputs2*) := <add-mirrors(|newMods*, 0, 0, 2, newInputs*, 0, 0, IntPair("0", "1"))>(Location(BL2, "0", "0"), [Location(loc2, rot2, mir2)]);
+				(resMods*, resInputs*, resOutputs*) := <merge-mirrors-and-modules(|0)> (newMods2*, mirs2*, newInputs2*, newOutputs*)
+			else if <eq>(newRot2, 270) then 
+				(newMods2*, mirs2*, newInputs2*):= <add-mirrors(|newMods*, 0, 0, 2, newInputs*, 0, 0, IntPair("0", "1"))>(Location(BL2, "180", "1"), [Location(loc2, rot2, mir2)]);
+				(resMods*, resInputs*, resOutputs*) := <merge-mirrors-and-modules(|0)> (newMods2*, mirs2*, newInputs2*, newOutputs*)
+			else if <eq>(newRot2, 0) then
+				(newMods2*, mirs2*, newInputs2*) := <add-mirrors(|newMods*, 0, 0, 2, newInputs*,  0, 0, IntPair("0", "1"))>(Location(IntPair("0", "0"), "0", "0"), [Location(loc2, rot2, mir2)]);
+				(resMods*, resInputs*, resOutputs*) := <merge-mirrors-and-modules(|0)> (newMods2*, mirs2*, newInputs2*, newOutputs*)
+			else
+				(resMods*, resInputs*, resOutputs*) := (newMods*, newInputs*, newOutputs*)
+			end end end
+			
+	add-lin-mirrors(|ast):
+		System(mods*, inports*, outports*, size, time, energy) -> System(resMods*, resInports*, resOutports*, resSize, time, energy)
+		with
+			(newMods*, resInports*, newOutports*, newSize) := <add-lin-in-mirrors(|ast, 1)>(mods*, inports*, outports*, size);
+			(resMods*, resOutports*, resSize) := <add-lin-out-mirrors(|ast, 1)>(newMods*, newOutports*, newSize)
+			
+	add-lin-in-mirrors(|ast, inputNum):
+		(mods*, inports*, outports*, size) -> (resMods*, resInports*, resOutports*, resSize)
+		with
+			if <index(|inputNum)> inports* then
+				inport := <index(|inputNum); input-get-inputs> inports*;
+				(newMods*, newInports*, newOutports*, newSize) := <add-mirrors-from-inputs(|ast, mods*, inports*, outports*, size)> inport;
+				(resMods*, resInports*, resOutports*, resSize) := <add-lin-in-mirrors(|ast, <inc> inputNum)> (newMods*, newInports*, newOutports*, newSize)
+			else
+				(resMods*, resInports*, resOutports*, resSize) := (mods*, inports*, outports*, size)
+			end
+			
+	add-mirrors-from-inputs(|ast, mods*, inports*, outports*, size):
+		[inport | array*] -> (resMods*, resInports*, resOutports*, resSize)
+		with
+			modNum := <intpair-getx; string-to-int> inport;
+			if <eq>(modNum, 0) then
+				(resMods*, resInports*, resOutports*, resSize) := <add-mirrors-from-inputs(|ast, mods*, inports*, outports*, size)> Input(inports*)
+			else
+				portNum := <intpair-gety; string-to-int> inport;
+				modId := <index(|modNum); module-get-id; string-to-int> mods*;
+				modLocation := <index(|modNum); module-get-location> mods*;
+				port := <get-funcblock(|modId); funcblock-get-input(|portNum); location-inherit(|modLocation)> ast;
+				(newMods*, newInports*, newOutports*, newSize) := <add-lin-in-mirror(|mods*, inports*, outports*, size, modNum, portNum)>port;
+				(resMods*, resInports*, resOutports*, resSize) := <add-mirrors-from-inputs(|ast, newMods*, newInports*, newOutports*, newSize)> array*
+			end
+			
+	add-mirrors-from-inputs(|ast, mods*, inports*, outports*, size):
+		[] -> (mods*, inports*, outports*, size)
+			
+	add-lin-out-mirrors(|ast, outputNum):
+		(mods*, outports*, size) -> (resMods*, resOutports*, resSize)
+		with
+			if <index(|outputNum)> outports* then
+				outport := <index(|outputNum)> outports*;
+				modNum := <intpair-getx; string-to-int> outport;
+				portNum := <intpair-gety; string-to-int> outport;
+				modId := <index(|modNum); module-get-id; string-to-int> mods*;
+				modLocation := <index(|modNum); module-get-location> mods*;
+				port := <get-funcblock(|modId); funcblock-get-output(|portNum); location-inherit(|modLocation)> ast;
+				(newMods*, newOutports*, newSize) := <add-lin-out-mirror(|mods*, outports*, size, modNum, portNum)>port;
+				(resMods*, resOutports*, resSize) := <add-lin-out-mirrors(|ast, <inc> outputNum)> (newMods*, newOutports*, newSize)
+			else
+				(resMods*, resOutports*, resSize) := (mods*, outports*, size)
+			end
+			
+	add-lin-in-mirror(|mods*, inports*, outports*, size, modNum, portNum):
+		Location(loc, rot, mir) -> (resMods*, resInports*, resOutports*, resSize)
+		with
+			newRot := <mod>(<add>(<mul>(<string-to-int>mir, 180), <string-to-int>rot), 360);
+			if <eq> (newRot, 90) then
+				<debug>"Cannot map linear skeleton with modules with inports on the same side as the first output port."
+			else if <eq> (newRot, 270) then
+				resMods* := mods*;
+				resInports* := inports*;
+				resOutports* := outports*;
+				resSize := size
+			else if <eq> (newRot, 0) then
+				newMods* := <map(increase-module-num-by(gt|1, 0))> mods*;
+				thisMod := <index(|modNum)> newMods*;
+				newMod := <module-set-source(|portNum, IntPair("1", "1"))> thisMod;
+				newerMods* := <set-index>(<dec> modNum, newMod, newMods*);
+				resMods* := <add-mirror(|loc, "0", "1", <tuple-to-intpair>(0, portNum), <index(|modNum)> newerMods*)> newerMods*;
+				newInports* := <map(input-addx(|1))> inports*;
+				resInports* := <set-index>(<subt>(portNum, 1), Input([IntPair("1", "1")]), newInports*);
+				resOutports* := <map(intpair-addX(|1))> outports*;
+				resSize := <intpair-addY(|32)> size
+			else
+				newMods* := <map(increase-module-num-by(gt|1, 0))> mods*;
+				thisMod := <index(|modNum)> newMods*;
+				newMod := <module-set-source(|portNum, IntPair("1", "1"))> thisMod;
+				newerMods* := <set-index>(<dec> modNum, newMod, newMods*);
+				resMods* := <add-mirror(|loc, "0", "0", <tuple-to-intpair>(0, portNum), <index(|modNum)> newerMods*)> newerMods*;
+				newInports* := <map(input-addx(|1))> inports*;
+				resInports* := <set-index>(<subt>(portNum, 1), Input([IntPair("1", "1")]), newInports*);
+				resOutports* := <map(intpair-addX(|1))> outports*;
+				resSize := <intpair-addY(|32)> size
+			end end end
+	
+	add-lin-out-mirror(|mods*, outports*, size, modNum, portNum):
+		Location(loc, rot, mir) -> (resMods*, resOutports*, resSize)
+		with
+			newRot := <mod>(<add>(<mul>(<string-to-int>mir, 180), <string-to-int>rot), 360);
+			if <eq> (newRot, 270) then
+				<debug>"Cannot map linear skeleton with modules with outports on the opposide side of the first output port."
+			else if <eq> (newRot, 90) then
+				resMods* := mods*;
+				resOutports* := outports*;
+				resSize := size
+			else if <eq> (newRot, 0) then
+				newMods* := <map(increase-module-num-by(gt|1, 0))> mods*;
+				thisMod := <index(|modNum)> newMods*;
+				newMod := <module-set-source(|portNum, IntPair("1", "1"))> thisMod;
+				newerMods* := <set-index>(<dec> modNum, newMod, newMods*);
+				resMods* := <add-mirror(|loc, "180", "0", <tuple-to-intpair>(0, portNum), <index(|modNum)> newerMods*)> newerMods*;
+				resOutports* := <set-index>(<subt>(portNum, 1), IntPair(<add; int-to-string>(<length> mods*, 1), "1"), outports*);
+				resSize := <intpair-addY(|32)> size
+			else
+				newMods* := <map(increase-module-num-by(gt|1, 0))> mods*;
+				thisMod := <index(|modNum)> newMods*;
+				newMod := <module-set-source(|portNum, IntPair("1", "1"))> thisMod;
+				newerMods* := <set-index>(<dec> modNum, newMod, newMods*);
+				resMods* := <add-mirror(|loc, "180", "1", <tuple-to-intpair>(0, portNum), <index(|modNum)> newerMods*)>newerMods*;
+				resOutports* := <set-index>(<subt>(portNum, 1), IntPair(<add; int-to-string>(<length> mods*, 1), "1"), outports*);
+				resSize := <intpair-addY(|32)> size
+			end end end	
+			
+	merge-mirrors-and-modules(|modNum1):
+		(mods*, mirs*, inputs*, outputs*) -> (resMods*, resInputs*, resOutputs*)
+		with
+			addMirNum := <length> mirs*;
+			resInputs* := <map(input-map-to-inputs(increase-unmarked-and-unmark(gt|addMirNum, 0)))> inputs*;
+			resOutputs* := <map(intpair-addX-cond(gt|addMirNum, 0))> outputs*;
+			newMods* := <map(increase-unmarked-sources-by(gt|addMirNum, modNum1))> mods*;
+			resMods* := [mirs*, newMods*]
+			
+			
+	increase-unmarked-sources-by(cond|num, bound):
+		Module(modId, delay, location, sources*) -> Module(modId, delay, location, newSources*)
+		with
+			newSources* := <map(increase-unmarked-and-unmark(cond|num, bound))> sources*
+			
+	increase-unmarked-and-unmark(cond|num, bound):
+		IntPair(x, y) -> res
+		with
+			if <lt>(<string-to-int> y, 0) then
+				res := IntPair(x, <subtS>("0", y))
+			else
+				res := <intpair-addX-cond(cond|num, bound)>IntPair(x, y)
+			end
+				
+	/*
+		Function that adds mirrors between one output port and a number of conne cted input ports
+		inputs:
+			list of modules on the side of the input ports: the mirrors will be added here and these modules need to be updated depending on the amount of mirrors added
+			index: amount of times that mirrors were added already
+			amount of mirrors added to the input list before the start of this rule
+			number representing what input of the system from which the modules come, was used to find the connection to which now mirrors are added.
+			inputs of the system
+			outputs of the other system the current system is being connected to
+			amount of modules in the other system
+			amount of modules in the other system, but 0 if the this system is not yet connected to that system.
+			The port the new mirrors should be connected to.
+	*/
+			
+	add-mirrors(|mods*, index, mirNum, inputNum, inputs*, addModRef, modNum1, connectPort):
+		(outPortLocation, inPortLocations*) -> (resMods*, resMirs*, resInputs*)
+		with
+			outOrientation := <location-get-orientation> outPortLocation;
+			inOrientations* := <map(location-get-orientation)> inPortLocations*;
+			orientationDiffs* := <zip(subt)>(<copy>(<length> inOrientations*, outOrientation), inOrientations*);
+			outBL := <location-get-bottom-left(|IntPair("32","1"))> outPortLocation;
+			inBLs* := <map(location-get-bottom-left(|IntPair("32","1")))> inPortLocations*;
+
+			if <eq>(<length> inPortLocations*, 1) then
+				currentInput := <index(|inputNum); input-get-inputs; index(|1)> inputs*;
+				if <intpair-are-alligned>(outBL, <index(|1)> inBLs*) then
+					if <eq>(<index(|1)> orientationDiffs*, 2) then
+						(resMods*, resMirs*, resInputs*) := (mods*, [], inputs*)
+					else
+						(resMods*, resMirs*) := <place-mirror(|mods*, index, mirNum, <intpair-getx; string-to-int> currentInput,  <intpair-gety; string-to-int> currentInput, addModRef, modNum1, connectPort)>(outOrientation, <index(|1)> orientationDiffs*, outBL, <index(|1)> inBLs*);
+						resInputs* := <set-index>(<dec>inputNum, Input([IntPair(<add; inc; int-to-string>(addModRef, mirNum), "-1")]), inputs*)
+					end
+				else
+					 (resMods*, resMirs*) := <place-mirror(|mods*, index, mirNum, <intpair-getx; string-to-int> currentInput,  <intpair-gety; string-to-int> currentInput, addModRef, modNum1, connectPort)>(outOrientation, <index(|1)> orientationDiffs*, outBL, <index(|1)> inBLs*);
+					 resInputs* := <set-index>(<dec>inputNum, Input([IntPair(<add; inc; int-to-string>(addModRef, mirNum), "-1")]), inputs*)
+				end
+			else
+				currentInputs* := <index(|inputNum); input-get-inputs> inputs*;
+				startInputs* := <set-index>(<dec>inputNum, Input([]), inputs*);
+				(resMods*, resMirs*, resInputs*) := <place-mirrors(|mods*, index, mirNum, inputNum, startInputs*, addModRef, modNum1, connectPort)>(outOrientation, orientationDiffs*, outBL, inBLs*, currentInputs*)
+			end
+			
+	place-mirrors(|mods*, index, mirNum, inputNum, inputs*, addModRef, modNum1, connectPort):
+		(outOrientation, [diff | orientationDiffs*], outBL, [inBL | inBLs*], [thisInput | theseInputs*]) -> (resMods*, resMirs*, resInputs*)
+		with
+			(newMods*, theseMirs*) := <place-mirror(|mods*, index, mirNum, <intpair-getx; string-to-int> thisInput, <intpair-gety; string-to-int> thisInput, addModRef, modNum1, connectPort)> (outOrientation, diff, outBL, inBL);
+			currentInput := <index(|inputNum)> inputs*;
+			newInput := <input-add-intpairs(|[IntPair(<add; inc; int-to-string>(addModRef, mirNum), "-1")])> currentInput;
+			newInputs* := <set-index>(<dec> inputNum, newInput, inputs*);
+			addMirNum := <length> theseMirs*;
+			(resMods*, thoseMirs*, resInputs*) := <place-mirrors(|newMods*, index, <add>(mirNum, addMirNum), inputNum, newInputs*, addModRef, modNum1, connectPort)>(outOrientation, orientationDiffs*, outBL, inBLs*,  theseInputs*);
+			resMirs* := [theseMirs*, thoseMirs*]
+	
+	place-mirrors(|mods*, index, mirNum, inputNum, inputs*, addModRef, modNum1, connectPort):
+		(outOrientation, [], outBL, [], []) -> (mods*, [], inputs*)
+	
+	
+	place-mirror(|mods*, index, mirNum, modNum, portNum, addModRef, modNum1, connectPort):
+		(outOrientation, orientationDiff, outPos, inPos) -> (resMods*, resMirs*)
+		with
+			if <eq>(orientationDiff, 0)  then
+				if <eq>(outOrientation, 0) then
+					mir1Rot := "0";
+					mir1X := <intpair-getx> inPos;
+					mir1Y := <subt; int-to-string>(<min>(<intpair-gety; string-to-int> outPos, <intpair-gety; string-to-int> inPos), <mul>(index, 32));
+					mir2X := <addS>(<intpair-getx> outPos, "32");
+					mir2Y := mir1Y;
+					mir2Rot := "270"
+				else if <eq>(outOrientation, 1) then
+					mir1Rot := "90";
+					mir1X := <add; int-to-string>(<max>(<intpair-getx; string-to-int> outPos, <intpair-getx; string-to-int> inPos), <mul>(index, 32));
+					mir1Y := <intpair-gety> inPos;
+					mir2X := mir1X;
+					mir2Y := <addS>(<intpair-gety> outPos, "32");
+					mir2Rot := "0"
+				else if <eq>(outOrientation, 2) then
+					mir1Rot := "180";
+					mir1X := <addS>(<intpair-getx> inPos, "32");
+					mir1Y := <add; int-to-string>(<max>(<intpair-gety; string-to-int> outPos, <intpair-gety; string-to-int> inPos), <mul>(index, 32));
+					mir2X := <intpair-getx> outPos;
+					mir2Y := mir1Y;
+					mir2Rot := "90"
+				else
+					mir1Rot := "270";
+					mir1X := <subt; int-to-string>(<min>(<intpair-getx; string-to-int> outPos, <intpair-getx; string-to-int> inPos), <mul>(index, 32));
+					mir1Y := <addS>(<intpair-gety> inPos, "32");
+					mir2X := mir1X;
+					mir2Y := <intpair-gety> outPos;
+					mir2Rot := "180"
+				end end end;
+				thisMod := <index(|<subt>(modNum, modNum1))> mods*;
+				newMod := <module-set-source(|portNum, IntPair(<addS>("2", <add; int-to-string>(mirNum, addModRef)), "-1"))> thisMod;
+				resMods* := <set-index>(<subt; dec>(modNum, modNum1), newMod, mods*);
+				mirs1* := <add-mirror(|IntPair(mir1X, mir1Y), mir1Rot, "1", <tuple-to-intpair>(<add; inc>(mirNum, addModRef), 1), <index(|<subt>(modNum, modNum1))> resMods*)> [];
+				resMirs* := <add-mirror(|IntPair(mir2X, mir2Y), mir2Rot, "1", connectPort, <index(|<subt>(modNum, modNum1))> resMods*)> mirs1*
+			else if <eq>(<abs> orientationDiff, 2)  then
+				if <eq>(outOrientation, 0) then
+					mir1Rot := "180";
+					mir1X := <addS>(<intpair-getx> inPos, "32");
+					mir1Y := <add; int-to-string>(<intpair-gety; string-to-int> outPos, <mul>(<subt>(index, 1), 32));
+					mir2X := <subtS>(<intpair-getx> outPos, "32");
+					mir2Y := <addS>(mir1Y, "32");
+					mir2Rot := "270"
+				else if <eq>(outOrientation, 1) then
+					mir1Rot := "270";
+					mir1X := <add; int-to-string>(<intpair-getx; string-to-int> outPos, <mul>(<add>(index, 1), 32));
+					mir1Y := <addS>(<intpair-gety> inPos, "32");
+					mir2X := <subtS>(mir1X, "32");
+					mir2Y := <intpair-gety> outPos;
+					mir2Rot := "0"
+				else if <eq>(outOrientation, 2) then
+					mir1Rot := "0";
+					mir1X := <intpair-getx> inPos;
+					mir1Y := <add; int-to-string>(<intpair-gety; string-to-int> outPos, <mul>(<add>(index, 1), 32));
+					mir2X := <addS>(<intpair-getx> outPos, "32");
+					mir2Y := <subtS>(mir1Y, "32");
+					mir2Rot := "90"
+				else
+					mir1Rot := "90";
+					mir1X := <add; int-to-string>(<intpair-getx; string-to-int> outPos, <mul>(index, 32));
+					mir1Y := <intpair-gety> inPos;
+					mir2X := <addS>(mir1X, "32");
+					mir2Y := <addS>(<intpair-gety> outPos, "32");
+					mir2Rot := "180"
+				end end end;
+				thisMod := <index(|<subt>(modNum, modNum1))> mods*;
+				newMod := <module-set-source(|portNum, IntPair(<addS>("2", <add; int-to-string>(mirNum, addModRef)), "-1"))> thisMod;
+				resMods* := <set-index>(<subt; dec>(modNum, modNum1), newMod, mods*);
+				mirs1* := <add-mirror(|IntPair(mir1X, mir1Y), mir1Rot, "1", <tuple-to-intpair>(<add; inc>(mirNum, addModRef), 1), <index(|<subt>(modNum, modNum1))> resMods*)> [];
+				resMirs* := <add-mirror(|IntPair(mir2X, mir2Y), mir2Rot, "0", connectPort, <index(|<subt>(modNum, modNum1))> resMods*)> mirs1*
+			else
+				if <eq>(outOrientation, 0) then
+					mirX := <addS>(<intpair-getx> outPos, "32");
+					mirY := <addS>(<intpair-gety> inPos, "32")
+				else if <eq>(outOrientation, 1) then
+					mirX := <intpair-getx> inPos;
+					mirY := <addS>(<intpair-gety> outPos, "32")
+				else if <eq>(outOrientation, 2) then
+					mirX := <intpair-getx> outPos;
+					mirY := <intpair-gety> inPos
+				else
+					mirX :=  <addS>(<intpair-getx> inPos, "32");
+					mirY := <intpair-gety> outPos
+				end end end;
+				mirRot := <int-to-string>(<mod>(<add>(<mul>(outOrientation, 90), 270), 360));
+				thisMod := <index(|<subt>(modNum, modNum1))> mods*;
+				newMod := <module-set-source(|portNum, IntPair(<addS>("1", <add; int-to-string>(mirNum, addModRef)), "-1"))> thisMod;
+				resMods* := <set-index>(<subt; dec>(modNum, modNum1), newMod, mods*);
+				resMirs* := <add-mirror(|IntPair(mirX, mirY), mirRot, "1", connectPort, <index(|<subt>(modNum, modNum1))> resMods*)> []
+			end end
+					
+	add-mirror(|loc, rot, mir, source, currentMod):
+		mods* -> resMods*
+		with
+			location := Location(loc, rot, mir);
+			time := <module-get-start> currentMod;
+			newMod* := [Module("-1", time, location, [source])];
+			resMods* := [newMod*, mods*]	
+		
+	skeleton-get-linear-system(|ast, systemTuples*, skeletonList*):
+		FuncBlockNum(str) -> <ast-to-dfg(|ast, systemTuples*, skeletonList*); rotate-outport(|ast); add-lin-mirrors(|ast); system-move-to-origin(|ast)> FuncBlockNum(str) 
+			  
+	skeleton-get-linear-system(|ast, systemTuples*, skeletonList*):
+		Connect(skel, Linear(), r) -> sys
+		with
+			preSys := <skeleton-get-linear-system(|ast, systemTuples*, skeletonList*)> skel
+			; postSys := <skeleton-get-linear-system(|ast, systemTuples*, skeletonList*)> r
+			; sys := <connect-in-X(|ast)> (preSys, postSys)
+			  
+	skeleton-get-linear-system(|ast, systemTuples*, skeletonList*):
+		[skel | skels*] -> sys
+		with
+		thisSys := <skeleton-get-linear-system(|ast, systemTuples*, skeletonList*)> skel;
+		if <geq>(<length> skels*, 1) then
+			thatSys := <skeleton-get-linear-system(|ast, systemTuples*, skeletonList*)> skels*;
+			sys := <combine-in-Y(|ast)> (thisSys, thatSys)
+		else
+			sys := thisSys
+		end
+	
+	skeleton-get-linear-system(|ast, systemTuples*, skeletonList*):
+		VarRef(val) -> sys
+		with
+			sys := <ast-to-dfg(|ast, systemTuples*, skeletonList*)> VarRef(val)
+	
+	skeleton-get-linear-system(|ast, systemTuples*, skeletonList*):
+		Nop() -> <ast-to-dfg(|ast, systemTuples*, skeletonList*)> Nop()
+		
+	skeleton-get-linear-system(|ast, systemTuples*, skeletonList*):
+		CompRef(x, sizes) -> <lookup>(x, systemTuples*)
+		
+	skeleton-get-input-length(|ast):
+		Nop() -> 1
+		
+	skeleton-get-input-length(|ast):
+		FuncBlockNum(num) -> res
+		with
+			res := <get-funcblock(|<string-to-int> num); funcblock-get-input-num> ast
+		
+	skeleton-get-input-length(|ast):
+		Connect(skel1, _, _) -> <skeleton-get-input-length(|ast)> skel1
+	
+	skeleton-get-input-length(|ast):
+		CompRef(system, (insize, outsize)) -> insize
+		
+	skeleton-get-input-length(|ast):
+		skels* -> res
+		with
+			skelRes* := <map(skeleton-get-input-length(|ast))> skels*;
+			res := <foldl(add)>(skelRes*, 0)
+			
+	skeleton-get-output-length(|ast):
+		Nop() -> 1
+		
+	skeleton-get-output-length(|ast):
+		FuncBlockNum(num) -> res
+		with
+			res := <get-funcblock(|<string-to-int> num); funcblock-get-output-num> ast
+		
+	skeleton-get-output-length(|ast):
+		Connect(_, _, skel2) -> <skeleton-get-output-length(|ast)> skel2 
+		
+	skeleton-get-output-length(|ast):
+		CompRef(system, (insize, outsize)) -> outsize
+		
+	skeleton-get-output-length(|ast):
+		skels* -> res
+		with
+			skelRes* := <map(skeleton-get-output-length(|ast))> skels*;
+			res := <foldl(add)>(skelRes*, 0)
+	
+	merge-trees:
+		([], [], [], []) -> sys*
+		with
+			sys* := []
+			
+	merge-trees:
+		([], [], thatSys*, thatN*) -> sys*
+		with
+			sys* := thatSys*
+		
+	merge-trees:
+		(thisSys*, thisN*, [], []) -> sys*
+		with
+			sys* := thisSys*
+			
+	merge-trees:
+		(thisSys*, thisN*, thatSys*, thatN*) -> sys*
+		with
+			thisSize := <length> thisSys*;
+			thatSize := <length> thatSys*;
+
+			[thisStageSize] := <take(|1)> thisN*;
+			thisStageSys* := <take(|thisStageSize)> thisSys*;
+			thisRestStages* := <drop(|thisSize)> thisSys*;
+			thisRestN* := <drop(|1)> thisN*;
+			
+			[thatStageSize] := <take(|1)> thatN*;
+			thatStageSys* := <take(|thatStageSize)> thatSys*;
+			thatRestStages* := <drop(|thatSize)> thatSys*;
+			thatRestN* := <drop(|1)> thatN*;
+		
+			stageSys* := [thisStageSys*, thatStageSys*];
+			restStagesSys* := <merge-trees>(thisRestStages*, thisRestN*, thatRestStages*, thatRestN*);
+			sys* := [ stageSys*, restStagesSys*]		

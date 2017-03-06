@@ -1,0 +1,11 @@
+module Generation
+
+menus
+    
+  menu: "Generation"					(openeditor)
+    action: "Show DFG"             		= debug-show-dfg (realtime) (meta)
+    action: "Show mapping"         		= debug-show-mapping (realtime) (meta)
+    action: "Generate SystemC"			= generate-systemc (realtime) (meta)
+    action: "Generate drawing"	   		= debug-draw (realtime) (meta)
+    
+  
